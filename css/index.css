@@ -29,9 +29,14 @@
   padding: 0;
 }
 
+html,
 body {
-  min-height: 100vh;
-  padding: 40px 20px;
+  height: 100%;
+}
+
+body {
+  overflow: hidden;
+  padding: 12px 12px;
 
   background:
     radial-gradient(
@@ -45,11 +50,14 @@ body {
   font-family: Inter, "Segoe UI", Arial, sans-serif;
 }
 
-/* 3. Main Layout */
+/* 3. Main Layout：固定一屏 */
 .game-container {
   width: 100%;
-  max-width: 850px;
+  max-width: 1400px;
+  height: 100%;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 4. Header */
@@ -58,7 +66,7 @@ body {
   justify-content: space-between;
   align-items: center;
   gap: 20px;
-  margin-bottom: 32px;
+  margin-bottom: 10px;
 }
 
 .brand {
@@ -70,26 +78,25 @@ body {
 .brand-icon {
   display: grid;
   place-items: center;
-  width: 54px;
-  height: 54px;
+  width: 42px;
+  height: 42px;
+  font-size: 22px;
 
   background: rgba(57, 255, 136, 0.1);
   border: 1px solid rgba(57, 255, 136, 0.25);
   border-radius: 16px;
-
-  font-size: 28px;
 }
 
 .brand h1 {
   margin-bottom: 5px;
-  font-size: clamp(22px, 4vw, 30px);
+  font-size: 22px;
   font-weight: 800;
   letter-spacing: -1px;
 }
 
 .brand p {
   color: var(--color-muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .game-status {
@@ -97,7 +104,7 @@ body {
   align-items: center;
   gap: 9px;
 
-  padding: 10px 14px;
+  padding: 7px 12px;
   border: 1px solid var(--color-border);
   border-radius: 999px;
 
@@ -116,16 +123,16 @@ body {
   box-shadow: 0 0 10px var(--color-primary);
 }
 
-/* 5. Score Dashboard */
+/* 5. Score Dashboard（缩小） */
 .score-panel {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 
 .score-card {
-  padding: 20px;
+  padding: 7px 12px;
   background: var(--bg-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -142,30 +149,46 @@ body {
 
 .score-label {
   display: block;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 
   color: var(--color-muted);
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 1.5px;
 }
 
 .score-card strong {
   color: var(--color-primary);
-  font-size: clamp(24px, 4vw, 32px);
+  font-size: 18px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
 
-/* 6. Game Board */
+/* 6. Play Area：棋盘与说明并排 */
+.play-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
 .game-section {
-  margin-bottom: 24px;
+  flex: 1;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .game-board {
   position: relative;
   overflow: hidden;
-  width: 100%;
+  width: auto;
+  height: 100%;
+  max-height: none;
   aspect-ratio: 1 / 1;
 
   background: #0b1217;
@@ -279,11 +302,15 @@ button:disabled {
 .control-buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
 }
 
 #pause-button,
 #restart-button {
+  min-height: 34px;
+  padding: 8px 14px;
+  font-size: 11px;
+
   background: var(--bg-card);
   color: var(--color-text);
   border-color: var(--color-border);
@@ -295,17 +322,15 @@ button:disabled {
   border-color: var(--color-primary);
 }
 
-/* 9. Game Controls */
+/* 9. Game Controls（缩小并贴底） */
 .game-controls {
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 20px;
-
-  margin-bottom: 28px;
-  padding: 20px;
-
+  gap: 10px;
+  margin-bottom: 0;
+  padding: 8px 12px;
   background: var(--bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -325,7 +350,7 @@ button:disabled {
 }
 
 #difficulty {
-  min-height: 42px;
+  min-height: 34px;
   padding: 0 34px 0 12px;
 
   background: var(--bg-card);
@@ -334,14 +359,17 @@ button:disabled {
   border-radius: 10px;
 
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
 }
 
-/* 10. Instructions */
+/* 10. Instructions（放在右侧） */
 .instructions {
-  margin-bottom: 28px;
-  padding: 24px;
+  width: 200px;
+  align-self: center;
+  margin-left: auto;
+  margin-bottom: 0;
+  padding: 14px;
 
   background: var(--bg-secondary);
   border: 1px solid var(--color-border);
@@ -349,66 +377,46 @@ button:disabled {
 }
 
 .instructions h2 {
-  margin-bottom: 20px;
-  color: var(--color-muted);
-  font-size: 11px;
-  letter-spacing: 2px;
+  margin-bottom: 12px;
+  font-size: 10px;
+  letter-spacing: 1.5px;
 }
 
 .instruction-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px 28px;
+  gap: 8px;
 }
 
 .instruction-list p {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-
-  color: var(--color-muted);
   font-size: 12px;
-}
-
-.instruction-list span {
-  margin-left: 4px;
+  gap: 4px;
 }
 
 kbd {
-  display: inline-grid;
-  place-items: center;
-  min-width: 28px;
-  height: 28px;
-  padding: 0 7px;
-
-  background: var(--bg-card);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-
-  color: var(--color-text);
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 700;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 5px;
+  font-size: 10px;
 }
 
-/* 11. Footer */
+/* 11. Footer（隐藏以节省空间） */
 .game-footer {
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 10px;
-
-  padding: 20px 0;
-  border-top: 1px solid var(--color-border);
-
-  color: var(--color-muted);
-  font-size: 11px;
+  display: none;
 }
 
 /* 12. Responsive Layout */
 @media (max-width: 600px) {
+  html,
   body {
+    height: auto;
+  }
+
+  body {
+    overflow: auto;
     padding: 24px 14px;
+  }
+
+  .game-container {
+    height: auto;
   }
 
   .game-header {
@@ -418,22 +426,24 @@ kbd {
     margin-bottom: 24px;
   }
 
-  .score-panel {
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-
-  .score-card {
-    padding: 14px 10px;
-  }
-
-  .score-label {
-    font-size: 9px;
-    letter-spacing: 1px;
+  .play-area {
+    flex-direction: column;
   }
 
   .game-board {
+    width: 100%;
+    height: auto;
+    max-height: none;
     border-radius: 14px;
+  }
+
+  .game-section {
+    height: auto;
+    width: 100%;
+  }
+
+  .instructions {
+    width: 100%;
   }
 
   .game-controls {
@@ -455,16 +465,8 @@ kbd {
     max-width: 180px;
   }
 
-  .instructions {
-    padding: 18px;
-  }
-
-  .instruction-list {
-    flex-direction: column;
-    gap: 12px;
-  }
-
   .game-footer {
+    display: flex;
     flex-direction: column;
   }
 }
