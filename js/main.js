@@ -1,7 +1,7 @@
-// ========================================
-// Modern Snake Game
-// Core Game Logic
-// ========================================
+/* ========================================
+   Modern Snake Game
+   Special Food & Bonus Rewards
+======================================== */
 
 // 1. Get HTML Elements
 const canvas = document.getElementById("game-canvas");
@@ -25,8 +25,27 @@ const difficultySelect = document.getElementById("difficulty");
 // 2. Game Configuration
 const GRID_SIZE = 20;
 const TILE_COUNT = canvas.width / GRID_SIZE;
+
 const FOOD_SCORE = 10;
 const LEVEL_SCORE = 50;
+
+// Special food configuration
+const SPECIAL_FOOD_INTERVAL = 3;
+const SPECIAL_FOOD_CHANCE = 0.7;
+const SPECIAL_FOOD_DURATION = 6000;
+
+const SPECIAL_FOOD_TYPES = [
+  {
+    type: "golden",
+    emoji: "⭐",
+    points: 30,
+  },
+  {
+    type: "crystal",
+    emoji: "💎",
+    points: 20,
+  },
+];
 
 const DIFFICULTIES = {
   easy: 180,
@@ -37,6 +56,8 @@ const DIFFICULTIES = {
 // 3. Game State
 let snake;
 let food;
+let specialFood;
+
 let direction;
 let nextDirection;
 
@@ -44,6 +65,7 @@ let score = 0;
 let level = 1;
 let bestScore = loadBestScore();
 
+let normalFoodEaten = 0;
 let gameState = "ready";
 let gameLoop = null;
 let currentSpeed = DIFFICULTIES.normal;
@@ -82,6 +104,8 @@ function initGame() {
 
   score = 0;
   level = 1;
+  normalFoodEaten = 0;
+  specialFood = null;
 
   currentSpeed = DIFFICULTIES[difficultySelect.value];
 
@@ -98,7 +122,7 @@ function initGame() {
   showOverlay(
     "🐍",
     "Ready to Play?",
-    "Eat the food, grow your snake, and beat your high score!",
+    "Eat the food, collect special bonuses, and beat your high score!",
     "START GAME",
   );
 }
@@ -130,33 +154,78 @@ function hideOverlay() {
   overlay.hidden = true;
 }
 
-// 11. Spawn Food
-function spawnFood() {
+// 11. Check Whether a Cell Is Occupied
+function isCellOccupied(x, y) {
+  const occupiedBySnake = snake.some(
+    (segment) => segment.x === x && segment.y === y,
+  );
+
+  const occupiedByFood = food && food.x === x && food.y === y;
+
+  const occupiedBySpecialFood =
+    specialFood && specialFood.x === x && specialFood.y === y;
+
+  return occupiedBySnake || occupiedByFood || occupiedBySpecialFood;
+}
+
+// 12. Get a Random Empty Cell
+function getRandomEmptyCell() {
   const emptyCells = [];
 
   for (let y = 0; y < TILE_COUNT; y++) {
     for (let x = 0; x < TILE_COUNT; x++) {
-      const occupied = snake.some(
-        (segment) => segment.x === x && segment.y === y,
-      );
-
-      if (!occupied) {
+      if (!isCellOccupied(x, y)) {
         emptyCells.push({ x, y });
       }
     }
   }
 
   if (emptyCells.length === 0) {
-    winGame();
-    return;
+    return null;
   }
 
   const randomIndex = Math.floor(Math.random() * emptyCells.length);
 
-  food = emptyCells[randomIndex];
+  return emptyCells[randomIndex];
 }
 
-// 12. Draw Background
+// 13. Spawn Normal Food
+function spawnFood() {
+  const emptyCell = getRandomEmptyCell();
+
+  if (!emptyCell) {
+    winGame();
+    return;
+  }
+
+  food = emptyCell;
+}
+
+// 14. Spawn Special Food
+function spawnSpecialFood() {
+  if (specialFood || gameState === "over") {
+    return;
+  }
+
+  const emptyCell = getRandomEmptyCell();
+
+  if (!emptyCell) {
+    return;
+  }
+
+  const randomIndex = Math.floor(Math.random() * SPECIAL_FOOD_TYPES.length);
+
+  const selectedType = SPECIAL_FOOD_TYPES[randomIndex];
+
+  specialFood = {
+    ...selectedType,
+    x: emptyCell.x,
+    y: emptyCell.y,
+    expiresAt: Date.now() + SPECIAL_FOOD_DURATION,
+  };
+}
+
+// 15. Draw Background
 function drawBackground() {
   ctx.fillStyle = "#0b1217";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -179,7 +248,7 @@ function drawBackground() {
   }
 }
 
-// 13. Draw Food
+// 16. Draw Normal Food
 function drawFood() {
   if (!food) return;
 
@@ -199,11 +268,50 @@ function drawFood() {
   ctx.restore();
 }
 
-// 14. Draw Snake
+// 17. Draw Special Food
+function drawSpecialFood() {
+  if (!specialFood) return;
+
+  const centerX = specialFood.x * GRID_SIZE + GRID_SIZE / 2;
+  const centerY = specialFood.y * GRID_SIZE + GRID_SIZE / 2;
+
+  const remainingSeconds = Math.max(
+    0,
+    Math.ceil((specialFood.expiresAt - Date.now()) / 1000),
+  );
+
+  const glowColor = specialFood.type === "golden" ? "#ffd166" : "#62c8ff";
+
+  ctx.save();
+
+  // Draw glowing background
+  ctx.shadowColor = glowColor;
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = glowColor;
+
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, GRID_SIZE * 0.42, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Draw special food icon
+  ctx.shadowBlur = 0;
+  ctx.font = "15px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(specialFood.emoji, centerX, centerY);
+
+  // Show remaining time
+  ctx.font = "bold 10px sans-serif";
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(`${remainingSeconds}s`, centerX, centerY + 17);
+
+  ctx.restore();
+}
+
+// 18. Draw Snake
 function drawSnake() {
   snake.forEach((segment, index) => {
     const padding = 2;
-
     const x = segment.x * GRID_SIZE + padding;
     const y = segment.y * GRID_SIZE + padding;
     const size = GRID_SIZE - padding * 2;
@@ -264,14 +372,15 @@ function drawSnake() {
   });
 }
 
-// 15. Draw Game
+// 19. Draw Game
 function drawGame() {
   drawBackground();
   drawFood();
+  drawSpecialFood();
   drawSnake();
 }
 
-// 16. Start Game
+// 20. Start Game
 function startGame() {
   if (gameState === "playing") return;
 
@@ -290,7 +399,7 @@ function startGame() {
   runGameLoop();
 }
 
-// 17. Game Loop
+// 21. Game Loop
 function runGameLoop() {
   clearInterval(gameLoop);
 
@@ -302,8 +411,15 @@ function runGameLoop() {
   }, currentSpeed);
 }
 
-// 18. Update Snake Position
+// 22. Update Snake Position
 function updateGame() {
+  // Remove expired special food
+  if (specialFood && Date.now() >= specialFood.expiresAt) {
+    specialFood = null;
+  }
+  if (statusElement.textContent.includes("BONUS")) {
+    updateStatus("PLAYING");
+  }
   direction = { ...nextDirection };
 
   const head = {
@@ -320,11 +436,14 @@ function updateGame() {
     return;
   }
 
-  const eatingFood = head.x === food.x && head.y === food.y;
+  const eatingFood = food && head.x === food.x && head.y === food.y;
 
-  // When not eating, the tail moves away this turn.
-  // Therefore, the new head may enter the old tail cell.
-  const bodyToCheck = eatingFood ? snake : snake.slice(0, -1);
+  const eatingSpecialFood =
+    specialFood && head.x === specialFood.x && head.y === specialFood.y;
+
+  // The tail moves away unless the snake eats something.
+  const bodyToCheck =
+    eatingFood || eatingSpecialFood ? snake : snake.slice(0, -1);
 
   const hitSelf = bodyToCheck.some(
     (segment) => segment.x === head.x && segment.y === head.y,
@@ -339,14 +458,16 @@ function updateGame() {
 
   if (eatingFood) {
     eatFood();
+  } else if (eatingSpecialFood) {
+    eatSpecialFood();
   } else {
     snake.pop();
   }
 }
 
-// 19. Eat Food
-function eatFood() {
-  score += FOOD_SCORE;
+// 23. Update Score, Level and Best Score
+function addScore(points) {
+  score += points;
 
   const newLevel = Math.floor(score / LEVEL_SCORE) + 1;
 
@@ -361,19 +482,60 @@ function eatFood() {
 
   updateDashboard();
 
-  // Increase speed when the level rises.
+  // Increase speed as the level rises.
   const baseSpeed = DIFFICULTIES[difficultySelect.value];
   const newSpeed = Math.max(45, baseSpeed - (level - 1) * 8);
 
   if (newSpeed !== currentSpeed) {
     currentSpeed = newSpeed;
-    runGameLoop();
-  }
 
-  spawnFood();
+    if (gameState === "playing") {
+      runGameLoop();
+    }
+  }
 }
 
-// 20. Pause / Resume
+// 24. Eat Normal Food
+function eatFood() {
+  addScore(FOOD_SCORE);
+
+  normalFoodEaten++;
+
+  spawnFood();
+
+  // Every third normal food has a chance to spawn a bonus.
+  if (
+    normalFoodEaten % SPECIAL_FOOD_INTERVAL === 0 &&
+    !specialFood &&
+    Math.random() < SPECIAL_FOOD_CHANCE &&
+    gameState !== "over"
+  ) {
+    spawnSpecialFood();
+  }
+}
+
+// 25. Eat Special Food
+function eatSpecialFood() {
+  const points = specialFood.points;
+  const foodType = specialFood.type;
+
+  // Remove the special food immediately.
+  specialFood = null;
+
+  addScore(points);
+
+  // Show a brief reward message in the game status.
+  if (foodType === "golden") {
+    updateStatus(`GOLDEN BONUS +${points}`);
+  } else {
+    updateStatus(`CRYSTAL BONUS +${points}`);
+  }
+
+  // Return to the normal status on the next game tick.
+  // The snake grows because its tail is not removed this turn.
+}
+
+// 26. Pause / Resume
 function togglePause() {
   if (gameState === "playing") {
     gameState = "paused";
@@ -399,7 +561,7 @@ function togglePause() {
   }
 }
 
-// 21. Game Over
+// 27. Game Over
 function endGame() {
   clearInterval(gameLoop);
   gameLoop = null;
@@ -414,12 +576,14 @@ function endGame() {
   showOverlay(
     "💥",
     "Game Over!",
-    `Your score: ${score}. ${score >= bestScore ? "Great job!" : "Try again and beat your best!"}`,
+    `Your score: ${score}. ${
+      score >= bestScore ? "Great job!" : "Try again and beat your best!"
+    }`,
     "PLAY AGAIN",
   );
 }
 
-// 22. Win Game
+// 28. Win Game
 function winGame() {
   clearInterval(gameLoop);
   gameLoop = null;
@@ -439,7 +603,7 @@ function winGame() {
   );
 }
 
-// 23. Restart Game
+// 29. Restart Game
 function restartGame() {
   clearInterval(gameLoop);
   gameLoop = null;
@@ -447,7 +611,7 @@ function restartGame() {
   initGame();
 }
 
-// 24. Change Direction
+// 30. Change Direction
 function changeDirection(x, y) {
   if (gameState !== "playing") return;
 
@@ -459,7 +623,7 @@ function changeDirection(x, y) {
   nextDirection = { x, y };
 }
 
-// 25. Keyboard Controls
+// 31. Keyboard Controls
 document.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
 
@@ -505,29 +669,33 @@ document.addEventListener("keydown", (event) => {
       break;
 
     case "enter":
-      if (gameState === "ready" || gameState === "over") {
-        startGame();
-      } else if (gameState === "paused") {
+      if (
+        gameState === "ready" ||
+        gameState === "over" ||
+        gameState === "paused"
+      ) {
         startGame();
       }
       break;
   }
 });
 
-// 26. Button Events
+// 32. Button Events
 startButton.addEventListener("click", startGame);
 pauseButton.addEventListener("click", togglePause);
 restartButton.addEventListener("click", restartGame);
 
-// 27. Difficulty Selection
+// 33. Difficulty Selection
 difficultySelect.addEventListener("change", () => {
-  currentSpeed = DIFFICULTIES[difficultySelect.value];
+  const baseSpeed = DIFFICULTIES[difficultySelect.value];
+
+  currentSpeed = Math.max(45, baseSpeed - (level - 1) * 8);
 
   if (gameState === "playing") {
     runGameLoop();
   }
 });
 
-// 28. Initial Setup
+// 34. Initial Setup
 bestScoreElement.textContent = bestScore;
 initGame();
