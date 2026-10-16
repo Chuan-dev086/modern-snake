@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <meta
+      name="description"
+      content="A modern snake game built with HTML, CSS, JavaScript and Canvas."
+    />
+
+    <title>Modern Snake Game</title>
+
+    <link rel="stylesheet" href="./css/index.css" />
+    <script src="./js/main.js" defer></script>
+  </head>
+
+  <body>
+    <main class="game-container">
+      <!-- Game Header -->
+      <header class="game-header">
+        <div class="brand">
+          <span class="brand-icon">🐍</span>
+
+          <div>
+            <h1>Modern Snake</h1>
+            <p>Classic gameplay. Modern experience.</p>
+          </div>
+        </div>
+
+        <div class="game-status">
+          <span class="status-dot"></span>
+          <span id="game-status">READY TO PLAY</span>
+        </div>
+      </header>
+
+      <!-- Score Dashboard -->
+      <section class="score-panel" aria-label="Game statistics">
+        <article class="score-card">
+          <span class="score-label">SCORE</span>
+          <strong id="score">0</strong>
+        </article>
+
+        <article class="score-card">
+          <span class="score-label">BEST SCORE</span>
+          <strong id="best-score">0</strong>
+        </article>
+
+        <article class="score-card">
+          <span class="score-label">LEVEL</span>
+          <strong id="level">1</strong>
+        </article>
+      </section>
+
+      <!-- Game Board -->
+      <section class="game-section" aria-label="Snake game">
+        <div class="game-board">
+          <canvas
+            id="game-canvas"
+            width="600"
+            height="600"
+            aria-label="Snake game board"
+          >
+            Your browser does not support HTML Canvas.
+          </canvas>
+
+          <!-- Start / Pause / Game Over Overlay -->
+          <div
+            class="game-overlay"
+            id="game-overlay"
+            role="dialog"
+            aria-labelledby="overlay-title"
+            aria-describedby="overlay-message"
+          >
+            <div class="overlay-content">
+              <span class="overlay-icon" id="overlay-icon">🐍</span>
+
+              <h2 id="overlay-title">Ready to Play?</h2>
+
+              <p id="overlay-message">
+                Eat the food, grow your snake, and beat your high score!
+              </p>
+
+              <button type="button" id="start-button">START GAME</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Game Controls -->
+      <section class="game-controls" aria-label="Game controls">
+        <div class="control-buttons">
+          <button type="button" id="pause-button" disabled>PAUSE</button>
+
+          <button type="button" id="restart-button">RESTART</button>
+        </div>
+
+        <div class="difficulty-control">
+          <label for="difficulty">DIFFICULTY</label>
+
+          <select id="difficulty">
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- Keyboard Instructions -->
+      <section class="instructions" aria-label="How to play">
+        <h2>HOW TO PLAY</h2>
+
+        <div class="instruction-list">
+          <p>
+            <kbd>↑</kbd>
+            <kbd>↓</kbd>
+            <kbd>←</kbd>
+            <kbd>→</kbd>
+            <span>Move</span>
+          </p>
+
+          <p>
+            <kbd>W</kbd>
+            <kbd>A</kbd>
+            <kbd>S</kbd>
+            <kbd>D</kbd>
+            <span>Alternative movement</span>
+          </p>
+
+          <p>
+            <kbd>SPACE</kbd>
+            <span>Pause / Resume</span>
+          </p>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="game-footer">
+        <p>Built with HTML, CSS & JavaScript</p>
+        <p>Challenge yourself. Beat your best.</p>
+      </footer>
+    </main>
+  </body>
+</html>
