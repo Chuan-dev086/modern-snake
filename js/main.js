@@ -6,6 +6,7 @@
 // 1. Get HTML Elements
 const canvas = document.getElementById("game-canvas");
 const ctx = canvas.getContext("2d");
+const gameBoard = document.querySelector(".game-board");
 
 const scoreElement = document.getElementById("score");
 const bestScoreElement = document.getElementById("best-score");
@@ -70,6 +71,12 @@ let gameState = "ready";
 let gameLoop = null;
 let currentSpeed = DIFFICULTIES.normal;
 
+// Particle and Floating Text Systems
+let particles = [];
+let floatingTexts = [];
+let animationFrameId = null;
+let lastFrameTime = performance.now();
+
 // 4. Load Best Score
 function loadBestScore() {
   try {
@@ -91,8 +98,25 @@ function saveBestScore() {
   }
 }
 
+// Trigger canvas screen shake effect
+function triggerScreenShake() {
+  canvas.classList.remove("shake");
+  // Force DOM reflow to allow re-triggering the CSS keyframe animation
+  void canvas.offsetWidth;
+  canvas.classList.add("shake");
+
+  canvas.addEventListener(
+    "animationend",
+    () => {
+      canvas.classList.remove("shake");
+    },
+    { once: true },
+  );
+}
+
 // 6. Initialize Game
 function initGame() {
+  canvas.classList.remove("shake");
   snake = [
     { x: 7, y: 15 },
     { x: 6, y: 15 },
@@ -106,6 +130,9 @@ function initGame() {
   level = 1;
   normalFoodEaten = 0;
   specialFood = null;
+
+  particles = [];
+  floatingTexts = [];
 
   currentSpeed = DIFFICULTIES[difficultySelect.value];
 
@@ -372,15 +399,134 @@ function drawSnake() {
   });
 }
 
-// 19. Draw Game
-function drawGame() {
+// 19. Particle & Visual Effects System
+function createFoodExplosion(x, y, color = "#ff5263", count = 14) {
+  const centerX = x * GRID_SIZE + GRID_SIZE / 2;
+  const centerY = y * GRID_SIZE + GRID_SIZE / 2;
+
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1.2 + Math.random() * 3.8;
+    const size = 2 + Math.random() * 3.5;
+    const maxLife = 20 + Math.random() * 18;
+
+    particles.push({
+      x: centerX,
+      y: centerY,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      size,
+      color,
+      alpha: 1,
+      life: maxLife,
+      maxLife,
+    });
+  }
+}
+
+function createFloatingScore(x, y, text, color = "#39ff88") {
+  const centerX = x * GRID_SIZE + GRID_SIZE / 2;
+  const centerY = y * GRID_SIZE + GRID_SIZE / 2;
+
+  floatingTexts.push({
+    x: centerX,
+    y: centerY,
+    text,
+    color,
+    alpha: 1,
+    vy: -1.2,
+    life: 35,
+    maxLife: 35,
+  });
+}
+
+function updateAndDrawEffects() {
+  // Update and draw particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vx *= 0.94; // slight drag
+    p.vy *= 0.94;
+    p.life--;
+    p.alpha = Math.max(0, p.life / p.maxLife);
+
+    if (p.life <= 0 || p.alpha <= 0) {
+      particles.splice(i, 1);
+      continue;
+    }
+
+    ctx.save();
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * (p.life / p.maxLife), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Update and draw floating texts
+  for (let i = floatingTexts.length - 1; i >= 0; i--) {
+    const ft = floatingTexts[i];
+    ft.y += ft.vy;
+    ft.life--;
+    ft.alpha = Math.max(0, ft.life / ft.maxLife);
+
+    if (ft.life <= 0 || ft.alpha <= 0) {
+      floatingTexts.splice(i, 1);
+      continue;
+    }
+
+    ctx.save();
+    ctx.globalAlpha = ft.alpha;
+    ctx.font = "bold 13px 'Segoe UI', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = ft.color;
+    ctx.shadowColor = ft.color;
+    ctx.shadowBlur = 6;
+    ctx.fillText(ft.text, ft.x, ft.y);
+    ctx.restore();
+  }
+}
+
+// Render game static elements (background, food, snake)
+function renderStaticScene() {
   drawBackground();
   drawFood();
   drawSpecialFood();
   drawSnake();
 }
 
-// 20. Start Game
+// 20. Start Animation Loop (60FPS requestAnimationFrame for silky smooth effects)
+function startAnimationLoop() {
+  if (animationFrameId !== null) return;
+
+  function renderLoop() {
+    renderStaticScene();
+    updateAndDrawEffects();
+    animationFrameId = requestAnimationFrame(renderLoop);
+  }
+
+  animationFrameId = requestAnimationFrame(renderLoop);
+}
+
+function stopAnimationLoop() {
+  if (animationFrameId !== null) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+}
+
+// 21. Draw Game
+function drawGame() {
+  renderStaticScene();
+  updateAndDrawEffects();
+}
+
+// 22. Start Game
 function startGame() {
   if (gameState === "playing") return;
 
@@ -397,9 +543,10 @@ function startGame() {
   pauseButton.textContent = "PAUSE";
 
   runGameLoop();
+  startAnimationLoop();
 }
 
-// 21. Game Loop
+// 23. Game Loop
 function runGameLoop() {
   clearInterval(gameLoop);
 
@@ -407,7 +554,10 @@ function runGameLoop() {
     if (gameState !== "playing") return;
 
     updateGame();
-    drawGame();
+    // In case requestAnimationFrame is throttled in background, drawGame ensures update
+    if (animationFrameId === null) {
+      drawGame();
+    }
   }, currentSpeed);
 }
 
@@ -495,8 +645,13 @@ function addScore(points) {
   }
 }
 
-// 24. Eat Normal Food
+// 25. Eat Normal Food
 function eatFood() {
+  if (food) {
+    createFoodExplosion(food.x, food.y, "#ff5263", 14);
+    createFloatingScore(food.x, food.y, `+${FOOD_SCORE}`, "#ff5263");
+  }
+
   addScore(FOOD_SCORE);
 
   normalFoodEaten++;
@@ -514,10 +669,16 @@ function eatFood() {
   }
 }
 
-// 25. Eat Special Food
+// 26. Eat Special Food
 function eatSpecialFood() {
   const points = specialFood.points;
   const foodType = specialFood.type;
+  const foodX = specialFood.x;
+  const foodY = specialFood.y;
+  const burstColor = foodType === "golden" ? "#ffd166" : "#62c8ff";
+
+  createFoodExplosion(foodX, foodY, burstColor, 20);
+  createFloatingScore(foodX, foodY, `+${points}`, burstColor);
 
   // Remove the special food immediately.
   specialFood = null;
@@ -535,13 +696,14 @@ function eatSpecialFood() {
   // The snake grows because its tail is not removed this turn.
 }
 
-// 26. Pause / Resume
+// 27. Pause / Resume
 function togglePause() {
   if (gameState === "playing") {
     gameState = "paused";
 
     clearInterval(gameLoop);
     gameLoop = null;
+    stopAnimationLoop();
 
     updateStatus("PAUSED");
     pauseButton.textContent = "RESUME";
@@ -561,12 +723,15 @@ function togglePause() {
   }
 }
 
-// 27. Game Over
+// 28. Game Over
 function endGame() {
   clearInterval(gameLoop);
   gameLoop = null;
+  stopAnimationLoop();
 
   gameState = "over";
+
+  triggerScreenShake();
 
   updateStatus("GAME OVER");
 
@@ -583,10 +748,11 @@ function endGame() {
   );
 }
 
-// 28. Win Game
+// 29. Win Game
 function winGame() {
   clearInterval(gameLoop);
   gameLoop = null;
+  stopAnimationLoop();
 
   gameState = "over";
 
@@ -603,10 +769,11 @@ function winGame() {
   );
 }
 
-// 29. Restart Game
+// 30. Restart Game
 function restartGame() {
   clearInterval(gameLoop);
   gameLoop = null;
+  stopAnimationLoop();
 
   initGame();
 }
