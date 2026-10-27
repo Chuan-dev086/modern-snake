@@ -179,8 +179,81 @@ body {
   flex: 1;
   height: 100%;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
+  position: relative;
+}
+
+/* Active Buff / Power-up Bar */
+.buff-bar-container {
+  width: min(100%, 600px);
+  margin-bottom: 8px;
+  padding: 6px 12px;
+  background: rgba(20, 30, 37, 0.95);
+  border: 1px solid rgba(255, 126, 95, 0.4);
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 15px rgba(255, 126, 95, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: buff-appear 0.25s ease-out;
+}
+
+.buff-bar-container[hidden] {
+  display: none;
+}
+
+@keyframes buff-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.buff-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.buff-icon {
+  margin-right: 6px;
+  font-size: 14px;
+}
+
+.buff-title {
+  color: #ffaa5a;
+  letter-spacing: 0.5px;
+  flex: 1;
+}
+
+.buff-timer {
+  color: #f0f6f3;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+
+.buff-progress-track {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.buff-progress-fill {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #ff7e5f, #feb47b);
+  border-radius: 999px;
+  transition: width 0.08s linear;
 }
 
 .game-board {
@@ -368,22 +441,29 @@ button:disabled {
   border-radius: var(--radius-md);
 }
 
-.difficulty-control {
+.select-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
-.difficulty-control label {
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-group label {
   color: var(--color-muted);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1px;
 }
 
-#difficulty {
+.control-group select {
   min-height: 34px;
-  padding: 0 34px 0 12px;
+  padding: 0 28px 0 10px;
 
   background: var(--bg-card);
   color: var(--color-text);
@@ -393,6 +473,13 @@ button:disabled {
   font: inherit;
   font-size: 12px;
   cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.control-group select:hover,
+.control-group select:focus {
+  border-color: var(--color-primary);
+  outline: none;
 }
 
 /* 10. Instructions（放在右侧） */
@@ -488,11 +575,17 @@ kbd {
     flex: 1;
   }
 
-  .difficulty-control {
-    justify-content: space-between;
+  .select-controls {
+    flex-direction: column;
+    gap: 12px;
   }
 
-  .difficulty-control select {
+  .control-group {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .control-group select {
     flex: 1;
     max-width: 180px;
   }

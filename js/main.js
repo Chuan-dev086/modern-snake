@@ -22,6 +22,13 @@ const startButton = document.getElementById("start-button");
 const pauseButton = document.getElementById("pause-button");
 const restartButton = document.getElementById("restart-button");
 const difficultySelect = document.getElementById("difficulty");
+const gameModeSelect = document.getElementById("game-mode");
+
+const buffBarContainer = document.getElementById("buff-bar-container");
+const buffIcon = document.getElementById("buff-icon");
+const buffTitle = document.getElementById("buff-title");
+const buffTimer = document.getElementById("buff-timer");
+const buffProgressFill = document.getElementById("buff-progress-fill");
 
 // 2. Game Configuration
 const GRID_SIZE = 20;
@@ -46,6 +53,11 @@ const SPECIAL_FOOD_TYPES = [
     emoji: "💎",
     points: 20,
   },
+  {
+    type: "trimmer",
+    emoji: "✂️",
+    points: 15,
+  },
 ];
 
 const DIFFICULTIES = {
@@ -58,6 +70,7 @@ const DIFFICULTIES = {
 let snake;
 let food;
 let specialFood;
+let obstacles = [];
 
 let direction;
 let nextDirection;
@@ -70,6 +83,12 @@ let normalFoodEaten = 0;
 let gameState = "ready";
 let gameLoop = null;
 let currentSpeed = DIFFICULTIES.normal;
+
+// Game Mode: "classic" | "portal" | "obstacles"
+let gameMode = "classic";
+
+// Active Buff / Power-up state (Tail Trimmer etc.)
+let activeBuff = null; // { type, name, icon, duration, expiresAt, remaining }
 
 // Particle and Floating Text Systems
 let particles = [];
@@ -114,9 +133,89 @@ function triggerScreenShake() {
   );
 }
 
+// Obstacle generation for Obstacle Maze mode
+function generateObstacles() {
+  obstacles = [];
+  if (gameMode !== "obstacles") return;
+
+  // Generate 4-6 small obstacle walls/blocks (each 2-4 tiles long)
+  // Ensure obstacles do not spawn too close to initial snake (x: 4..10, y: 13..17)
+  const blockCount = 5;
+  for (let b = 0; b < blockCount; b++) {
+    const isHorizontal = Math.random() < 0.5;
+    const length = 3;
+    const startX = Math.floor(Math.random() * (TILE_COUNT - length));
+    const startY = Math.floor(Math.random() * (TILE_COUNT - length));
+
+    for (let i = 0; i < length; i++) {
+      const ox = isHorizontal ? startX + i : startX;
+      const oy = isHorizontal ? startY : startY + i;
+
+      // Keep safe zone around initial snake spawn (x: 4..9, y: 13..17)
+      if (ox >= 3 && ox <= 9 && oy >= 13 && oy <= 17) {
+        continue;
+      }
+
+      if (!obstacles.some((o) => o.x === ox && o.y === oy)) {
+        obstacles.push({ x: ox, y: oy });
+      }
+    }
+  }
+}
+
+// Active Buff UI Management
+function startBuff(type, name, icon, durationMs) {
+  activeBuff = {
+    type,
+    name,
+    icon,
+    duration: durationMs,
+    expiresAt: Date.now() + durationMs,
+    remaining: durationMs,
+  };
+
+  buffIcon.textContent = icon;
+  buffTitle.textContent = name;
+  buffTimer.textContent = `${(durationMs / 1000).toFixed(1)}s`;
+  buffProgressFill.style.width = "100%";
+  buffBarContainer.hidden = false;
+}
+
+function clearBuff() {
+  activeBuff = null;
+  if (buffBarContainer) {
+    buffBarContainer.hidden = true;
+  }
+}
+
+function updateBuffUI() {
+  if (!activeBuff) {
+    if (buffBarContainer && !buffBarContainer.hidden) {
+      buffBarContainer.hidden = true;
+    }
+    return;
+  }
+
+  const remainingMs = Math.max(0, activeBuff.expiresAt - Date.now());
+  activeBuff.remaining = remainingMs;
+
+  const seconds = (remainingMs / 1000).toFixed(1);
+  buffTimer.textContent = `${seconds}s`;
+
+  const percent = Math.max(0, Math.min(100, (remainingMs / activeBuff.duration) * 100));
+  buffProgressFill.style.width = `${percent}%`;
+
+  if (remainingMs <= 0) {
+    clearBuff();
+  }
+}
+
 // 6. Initialize Game
 function initGame() {
   canvas.classList.remove("shake");
+  gameMode = gameModeSelect ? gameModeSelect.value : "classic";
+  clearBuff();
+
   snake = [
     { x: 7, y: 15 },
     { x: 6, y: 15 },
@@ -134,6 +233,8 @@ function initGame() {
   particles = [];
   floatingTexts = [];
 
+  generateObstacles();
+
   currentSpeed = DIFFICULTIES[difficultySelect.value];
 
   spawnFood();
@@ -146,10 +247,16 @@ function initGame() {
   pauseButton.disabled = true;
   pauseButton.textContent = "PAUSE";
 
+  const modeDescriptions = {
+    classic: "Classic mode: Watch the walls and grow your snake!",
+    portal: "Portal mode: Walk through edges to wrap around the screen!",
+    obstacles: "Obstacle Maze: Navigate carefully around hazardous barriers!",
+  };
+
   showOverlay(
     "🐍",
     "Ready to Play?",
-    "Eat the food, collect special bonuses, and beat your high score!",
+    modeDescriptions[gameMode] || "Eat the food, collect special bonuses, and beat your high score!",
     "START GAME",
   );
 }
@@ -192,7 +299,11 @@ function isCellOccupied(x, y) {
   const occupiedBySpecialFood =
     specialFood && specialFood.x === x && specialFood.y === y;
 
-  return occupiedBySnake || occupiedByFood || occupiedBySpecialFood;
+  const occupiedByObstacle = obstacles.some(
+    (obs) => obs.x === x && obs.y === y,
+  );
+
+  return occupiedBySnake || occupiedByFood || occupiedBySpecialFood || occupiedByObstacle;
 }
 
 // 12. Get a Random Empty Cell
@@ -257,6 +368,13 @@ function drawBackground() {
   ctx.fillStyle = "#0b1217";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  // Border style hints mode: Portal mode gets pulsing/dotted cyan edges, Obstacles gets warm amber
+  if (gameMode === "portal") {
+    ctx.strokeStyle = "rgba(98, 200, 255, 0.4)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
+  }
+
   ctx.strokeStyle = "rgba(57, 255, 136, 0.055)";
   ctx.lineWidth = 1;
 
@@ -273,6 +391,36 @@ function drawBackground() {
     ctx.lineTo(canvas.width, position);
     ctx.stroke();
   }
+}
+
+// 15b. Draw Obstacles (Obstacle Maze mode)
+function drawObstacles() {
+  if (gameMode !== "obstacles" || obstacles.length === 0) return;
+
+  obstacles.forEach((obs) => {
+    const padding = 1.5;
+    const x = obs.x * GRID_SIZE + padding;
+    const y = obs.y * GRID_SIZE + padding;
+    const size = GRID_SIZE - padding * 2;
+
+    ctx.save();
+    ctx.fillStyle = "#ff4757";
+    ctx.shadowColor = "#ff4757";
+    ctx.shadowBlur = 10;
+
+    // Obstacle block with warning neon styling
+    ctx.beginPath();
+    ctx.roundRect(x, y, size, size, 4);
+    ctx.fill();
+
+    // Inner detail
+    ctx.fillStyle = "#2f3542";
+    ctx.beginPath();
+    ctx.roundRect(x + 3, y + 3, size - 6, size - 6, 2);
+    ctx.fill();
+
+    ctx.restore();
+  });
 }
 
 // 16. Draw Normal Food
@@ -307,7 +455,12 @@ function drawSpecialFood() {
     Math.ceil((specialFood.expiresAt - Date.now()) / 1000),
   );
 
-  const glowColor = specialFood.type === "golden" ? "#ffd166" : "#62c8ff";
+  const glowColor =
+    specialFood.type === "golden"
+      ? "#ffd166"
+      : specialFood.type === "crystal"
+        ? "#62c8ff"
+        : "#ff7e5f"; // trimmer orange-red
 
   ctx.save();
 
@@ -492,9 +645,10 @@ function updateAndDrawEffects() {
   }
 }
 
-// Render game static elements (background, food, snake)
+// Render game static elements (background, obstacles, food, snake)
 function renderStaticScene() {
   drawBackground();
+  drawObstacles();
   drawFood();
   drawSpecialFood();
   drawSnake();
@@ -505,6 +659,7 @@ function startAnimationLoop() {
   if (animationFrameId !== null) return;
 
   function renderLoop() {
+    updateBuffUI();
     renderStaticScene();
     updateAndDrawEffects();
     animationFrameId = requestAnimationFrame(renderLoop);
@@ -567,23 +722,44 @@ function updateGame() {
   if (specialFood && Date.now() >= specialFood.expiresAt) {
     specialFood = null;
   }
-  if (statusElement.textContent.includes("BONUS")) {
+  if (statusElement.textContent.includes("BONUS") || statusElement.textContent.includes("TRIMMED")) {
     updateStatus("PLAYING");
   }
   direction = { ...nextDirection };
 
-  const head = {
+  let head = {
     x: snake[0].x + direction.x,
     y: snake[0].y + direction.y,
   };
 
-  // Check wall collision
-  const hitWall =
-    head.x < 0 || head.x >= TILE_COUNT || head.y < 0 || head.y >= TILE_COUNT;
+  // Boundary logic based on gameMode
+  if (gameMode === "portal") {
+    // Portal / Wrap-around mode: wraps around borders
+    if (head.x < 0) head.x = TILE_COUNT - 1;
+    else if (head.x >= TILE_COUNT) head.x = 0;
+    if (head.y < 0) head.y = TILE_COUNT - 1;
+    else if (head.y >= TILE_COUNT) head.y = 0;
+  } else {
+    // Classic & Obstacles: hitting boundary walls ends the game
+    const hitWall =
+      head.x < 0 || head.x >= TILE_COUNT || head.y < 0 || head.y >= TILE_COUNT;
 
-  if (hitWall) {
-    endGame();
-    return;
+    if (hitWall) {
+      endGame();
+      return;
+    }
+  }
+
+  // Check obstacle collision in Obstacle Maze mode
+  if (gameMode === "obstacles") {
+    const hitObstacle = obstacles.some(
+      (obs) => obs.x === head.x && obs.y === head.y,
+    );
+
+    if (hitObstacle) {
+      endGame();
+      return;
+    }
   }
 
   const eatingFood = food && head.x === food.x && head.y === food.y;
@@ -675,25 +851,48 @@ function eatSpecialFood() {
   const foodType = specialFood.type;
   const foodX = specialFood.x;
   const foodY = specialFood.y;
-  const burstColor = foodType === "golden" ? "#ffd166" : "#62c8ff";
+
+  const burstColor =
+    foodType === "golden"
+      ? "#ffd166"
+      : foodType === "crystal"
+        ? "#62c8ff"
+        : "#ff7e5f";
 
   createFoodExplosion(foodX, foodY, burstColor, 20);
-  createFloatingScore(foodX, foodY, `+${points}`, burstColor);
+
+  // If Tail Trimmer power-up was eaten
+  if (foodType === "trimmer") {
+    // Halve the snake's tail length (minimum 3 segments)
+    const originalLength = snake.length;
+    const newLength = Math.max(3, Math.floor(originalLength / 2));
+    const trimmedCount = originalLength - newLength;
+
+    if (trimmedCount > 0) {
+      // Create burst particles along the trimmed segments
+      for (let i = newLength; i < originalLength; i++) {
+        createFoodExplosion(snake[i].x, snake[i].y, "#ff7e5f", 6);
+      }
+      snake = snake.slice(0, newLength);
+    }
+
+    createFloatingScore(foodX, foodY, `TRIM -${trimmedCount}!`, "#ff7e5f");
+    startBuff("trimmer", "Tail Trimmer (-50% Length)", "✂️", 5000);
+    updateStatus(`✂️ TAIL TRIMMED! -${trimmedCount} SEGMENTS`);
+  } else {
+    createFloatingScore(foodX, foodY, `+${points}`, burstColor);
+
+    if (foodType === "golden") {
+      updateStatus(`GOLDEN BONUS +${points}`);
+    } else {
+      updateStatus(`CRYSTAL BONUS +${points}`);
+    }
+  }
 
   // Remove the special food immediately.
   specialFood = null;
 
   addScore(points);
-
-  // Show a brief reward message in the game status.
-  if (foodType === "golden") {
-    updateStatus(`GOLDEN BONUS +${points}`);
-  } else {
-    updateStatus(`CRYSTAL BONUS +${points}`);
-  }
-
-  // Return to the normal status on the next game tick.
-  // The snake grows because its tail is not removed this turn.
 }
 
 // 27. Pause / Resume
@@ -852,7 +1051,7 @@ startButton.addEventListener("click", startGame);
 pauseButton.addEventListener("click", togglePause);
 restartButton.addEventListener("click", restartGame);
 
-// 33. Difficulty Selection
+// 33. Difficulty & Game Mode Selection
 difficultySelect.addEventListener("change", () => {
   const baseSpeed = DIFFICULTIES[difficultySelect.value];
 
@@ -862,6 +1061,19 @@ difficultySelect.addEventListener("change", () => {
     runGameLoop();
   }
 });
+
+if (gameModeSelect) {
+  gameModeSelect.addEventListener("change", () => {
+    gameMode = gameModeSelect.value;
+    if (gameState === "ready" || gameState === "over" || gameState === "paused") {
+      initGame();
+    } else if (gameState === "playing") {
+      // Prompt user or seamlessly switch mode
+      generateObstacles();
+      drawGame();
+    }
+  });
+}
 
 // 34. Initial Setup
 bestScoreElement.textContent = bestScore;

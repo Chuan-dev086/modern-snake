@@ -55,6 +55,19 @@
       <div class="play-area">
         <!-- Game Board -->
         <section class="game-section" aria-label="Snake game">
+
+          <!-- Active Buff / Power-up Banner -->
+          <div class="buff-bar-container" id="buff-bar-container" hidden>
+            <div class="buff-info">
+              <span class="buff-icon" id="buff-icon">✂️</span>
+              <span class="buff-title" id="buff-title">Tail Trimmer Active</span>
+              <span class="buff-timer" id="buff-timer">5.0s</span>
+            </div>
+            <div class="buff-progress-track">
+              <div class="buff-progress-fill" id="buff-progress-fill"></div>
+            </div>
+          </div>
+
           <div class="game-board">
             <canvas
               id="game-canvas"
@@ -125,14 +138,26 @@
           <button type="button" id="restart-button">RESTART</button>
         </div>
 
-        <div class="difficulty-control">
-          <label for="difficulty">DIFFICULTY</label>
+        <div class="select-controls">
+          <div class="control-group">
+            <label for="game-mode">MODE</label>
 
-          <select id="difficulty">
-            <option value="easy">Easy</option>
-            <option value="normal" selected>Normal</option>
-            <option value="hard">Hard</option>
-          </select>
+            <select id="game-mode">
+              <option value="classic" selected>Classic</option>
+              <option value="portal">Portal (Wrap)</option>
+              <option value="obstacles">Obstacle Maze</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label for="difficulty">DIFFICULTY</label>
+
+            <select id="difficulty">
+              <option value="easy">Easy</option>
+              <option value="normal" selected>Normal</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
         </div>
       </section>
 
