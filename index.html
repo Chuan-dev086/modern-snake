@@ -13,9 +13,25 @@
 
     <link rel="stylesheet" href="./css/index.css" />
     <script src="./js/main.js" defer></script>
+    <script src="./js/theme.js" defer></script>
   </head>
 
   <body>
+    <!-- Leaderboard Modal -->
+    <div class="modal-backdrop" id="leaderboard-modal" hidden role="dialog" aria-modal="true" aria-labelledby="lb-title">
+      <div class="modal-panel">
+        <div class="modal-header">
+          <span class="modal-title-icon">🏆</span>
+          <h2 id="lb-title">Top 5 Leaderboard</h2>
+          <button class="modal-close-btn" id="lb-close-btn" aria-label="Close leaderboard">✕</button>
+        </div>
+        <ol class="leaderboard-list" id="leaderboard-list">
+          <!-- JS-populated -->
+        </ol>
+        <button class="modal-action-btn" id="lb-play-again-btn">PLAY AGAIN</button>
+      </div>
+    </div>
+
     <main class="game-container">
       <!-- Game Header -->
       <header class="game-header">
@@ -31,6 +47,16 @@
         <div class="game-status">
           <span class="status-dot"></span>
           <span id="game-status">READY TO PLAY</span>
+        </div>
+
+        <!-- Theme Switcher -->
+        <div class="theme-switcher" aria-label="Theme">
+          <button class="theme-btn" id="theme-btn" title="Switch theme">🎨 THEME</button>
+          <div class="theme-menu" id="theme-menu" hidden>
+            <button class="theme-option" data-theme="neon-green">🟢 Neon Green</button>
+            <button class="theme-option" data-theme="synthwave">🌸 Synthwave</button>
+            <button class="theme-option" data-theme="gameboy">🟩 GameBoy</button>
+          </div>
         </div>
       </header>
 
@@ -101,8 +127,7 @@
           </div>
         </section>
 
-        <!-- Keyboard Instructions -->
-        <section class="instructions" aria-label="How to play">
+        <!-- Keyboard Instructions -->        <section class="instructions" aria-label="How to play">
           <h2>HOW TO PLAY</h2>
 
           <div class="instruction-list">
@@ -136,6 +161,8 @@
           <button type="button" id="pause-button" disabled>PAUSE</button>
 
           <button type="button" id="restart-button">RESTART</button>
+
+          <button type="button" id="leaderboard-btn">🏆 SCORES</button>
         </div>
 
         <div class="select-controls">

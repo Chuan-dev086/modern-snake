@@ -1,6 +1,6 @@
 /* ========================================
    Modern Snake Game
-   Special Food & Bonus Rewards
+   Special Food & Bonus Rewards | Phase 2 Modes | Phase 4 Leaderboard
 ======================================== */
 
 // 1. Get HTML Elements
@@ -21,6 +21,7 @@ const overlayMessage = document.getElementById("overlay-message");
 const startButton = document.getElementById("start-button");
 const pauseButton = document.getElementById("pause-button");
 const restartButton = document.getElementById("restart-button");
+const leaderboardBtn = document.getElementById("leaderboard-btn");
 const difficultySelect = document.getElementById("difficulty");
 const gameModeSelect = document.getElementById("game-mode");
 
@@ -29,6 +30,12 @@ const buffIcon = document.getElementById("buff-icon");
 const buffTitle = document.getElementById("buff-title");
 const buffTimer = document.getElementById("buff-timer");
 const buffProgressFill = document.getElementById("buff-progress-fill");
+
+// Leaderboard DOM references
+const leaderboardModal = document.getElementById("leaderboard-modal");
+const leaderboardList = document.getElementById("leaderboard-list");
+const lbCloseBtn = document.getElementById("lb-close-btn");
+const lbPlayAgainBtn = document.getElementById("lb-play-again-btn");
 
 // 2. Game Configuration
 const GRID_SIZE = 20;
@@ -115,6 +122,111 @@ function saveBestScore() {
   } catch (error) {
     console.warn("Unable to save best score:", error);
   }
+}
+
+// ── Leaderboard (Top-5) ──────────────────────────────────────
+
+const LEADERBOARD_KEY = "modern_snake_leaderboard";
+const LEADERBOARD_MAX = 5;
+
+/** Returns the stored leaderboard array (sorted highest first). */
+function loadLeaderboard() {
+  try {
+    const raw = localStorage.getItem(LEADERBOARD_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (e) => typeof e.score === "number" && Number.isFinite(e.score),
+    );
+  } catch (_) {
+    return [];
+  }
+}
+
+/** Saves the leaderboard array. */
+function saveLeaderboard(entries) {
+  try {
+    localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries));
+  } catch (_) {}
+}
+
+/**
+ * Adds the given score to the leaderboard if it qualifies.
+ * Returns the updated board and the index of the new entry (-1 if not added).
+ */
+function submitScore(newScore) {
+  if (newScore <= 0) return { entries: loadLeaderboard(), newIndex: -1 };
+
+  const entries = loadLeaderboard();
+  const entry = {
+    score: newScore,
+    date: new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+    mode: gameMode,
+  };
+
+  entries.push(entry);
+  entries.sort((a, b) => b.score - a.score);
+
+  // Keep only top-N
+  const trimmed = entries.slice(0, LEADERBOARD_MAX);
+  const newIndex = trimmed.findIndex((e) => e === entry);
+
+  saveLeaderboard(trimmed);
+  return { entries: trimmed, newIndex };
+}
+
+/** Renders the leaderboard list into the modal. */
+function renderLeaderboard(entries, newIndex) {
+  leaderboardList.innerHTML = "";
+
+  const RANK_ICONS = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"];
+
+  for (let i = 0; i < LEADERBOARD_MAX; i++) {
+    const li = document.createElement("li");
+    li.className = "lb-entry";
+
+    if (i < entries.length) {
+      const e = entries[i];
+      const isNew = i === newIndex;
+      if (isNew) li.classList.add("lb-new");
+
+      const modeLabel =
+        e.mode === "portal" ? "Portal" : e.mode === "obstacles" ? "Maze" : "Classic";
+
+      li.innerHTML = `
+        <span class="lb-rank">${RANK_ICONS[i] ?? i + 1}</span>
+        <span class="lb-score">${e.score}</span>
+        <span class="lb-meta">
+          <span>${e.date ?? ""}</span>
+          <span>${modeLabel}</span>
+        </span>
+        ${isNew ? '<span class="lb-new-badge">NEW</span>' : ""}
+      `;
+    } else {
+      li.classList.add("lb-empty");
+      li.innerHTML = `<span class="lb-rank">${RANK_ICONS[i] ?? i + 1}</span><span>—</span>`;
+    }
+
+    leaderboardList.appendChild(li);
+  }
+}
+
+/** Opens the leaderboard modal (pass newIndex=-1 when just browsing). */
+function openLeaderboard(newIndex = -1) {
+  const entries = newIndex >= 0
+    ? (() => {
+        // Already submitted; just reload from storage
+        return loadLeaderboard();
+      })()
+    : loadLeaderboard();
+
+  renderLeaderboard(entries, newIndex);
+  leaderboardModal.hidden = false;
+}
+
+function closeLeaderboard() {
+  leaderboardModal.hidden = true;
 }
 
 // Trigger canvas screen shake effect
@@ -363,19 +475,37 @@ function spawnSpecialFood() {
   };
 }
 
+// Helper: get active theme palette (falls back to neon-green defaults)
+function getThemePalette() {
+  const activeTheme =
+    document.documentElement.getAttribute("data-theme") || "neon-green";
+  const palette =
+    (window.SNAKE_THEME && window.SNAKE_THEME[activeTheme]) ||
+    (window.SNAKE_THEME && window.SNAKE_THEME["neon-green"]) ||
+    {
+      bg: "#0b1217",
+      gridLine: "rgba(57, 255, 136, 0.055)",
+      snake: { head: "#70ffab", body: "#39d978", shadow: "#39ff88" },
+      food: "#ff5263",
+    };
+  return palette;
+}
+
 // 15. Draw Background
 function drawBackground() {
-  ctx.fillStyle = "#0b1217";
+  const palette = getThemePalette();
+
+  ctx.fillStyle = palette.bg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Border style hints mode: Portal mode gets pulsing/dotted cyan edges, Obstacles gets warm amber
+  // Border style hints mode: Portal mode gets cyan border
   if (gameMode === "portal") {
     ctx.strokeStyle = "rgba(98, 200, 255, 0.4)";
     ctx.lineWidth = 2;
     ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
   }
 
-  ctx.strokeStyle = "rgba(57, 255, 136, 0.055)";
+  ctx.strokeStyle = palette.gridLine;
   ctx.lineWidth = 1;
 
   for (let i = 0; i <= TILE_COUNT; i++) {
@@ -427,14 +557,15 @@ function drawObstacles() {
 function drawFood() {
   if (!food) return;
 
+  const palette = getThemePalette();
   const centerX = food.x * GRID_SIZE + GRID_SIZE / 2;
   const centerY = food.y * GRID_SIZE + GRID_SIZE / 2;
 
   ctx.save();
 
-  ctx.shadowColor = "#ff5263";
+  ctx.shadowColor = palette.food;
   ctx.shadowBlur = 15;
-  ctx.fillStyle = "#ff5263";
+  ctx.fillStyle = palette.food;
 
   ctx.beginPath();
   ctx.arc(centerX, centerY, GRID_SIZE * 0.34, 0, Math.PI * 2);
@@ -490,6 +621,8 @@ function drawSpecialFood() {
 
 // 18. Draw Snake
 function drawSnake() {
+  const palette = getThemePalette();
+
   snake.forEach((segment, index) => {
     const padding = 2;
     const x = segment.x * GRID_SIZE + padding;
@@ -498,10 +631,10 @@ function drawSnake() {
 
     ctx.save();
 
-    ctx.fillStyle = index === 0 ? "#70ffab" : "#39d978";
+    ctx.fillStyle = index === 0 ? palette.snake.head : palette.snake.body;
 
     if (index === 0) {
-      ctx.shadowColor = "#39ff88";
+      ctx.shadowColor = palette.snake.shadow;
       ctx.shadowBlur = 12;
     }
 
@@ -922,7 +1055,7 @@ function togglePause() {
   }
 }
 
-// 28. Game Over
+// 28. Game Over — submit score then show leaderboard modal
 function endGame() {
   clearInterval(gameLoop);
   gameLoop = null;
@@ -937,17 +1070,17 @@ function endGame() {
   pauseButton.disabled = true;
   pauseButton.textContent = "PAUSE";
 
-  showOverlay(
-    "💥",
-    "Game Over!",
-    `Your score: ${score}. ${
-      score >= bestScore ? "Great job!" : "Try again and beat your best!"
-    }`,
-    "PLAY AGAIN",
-  );
+  // Submit to leaderboard, then open the modal after a short delay
+  // (let shake finish before showing the modal)
+  const { entries, newIndex } = submitScore(score);
+
+  setTimeout(() => {
+    renderLeaderboard(entries, newIndex);
+    leaderboardModal.hidden = false;
+  }, 450);
 }
 
-// 29. Win Game
+// 29. Win Game — also submit and show leaderboard
 function winGame() {
   clearInterval(gameLoop);
   gameLoop = null;
@@ -966,6 +1099,14 @@ function winGame() {
     `Amazing! You scored ${score} points and filled the board!`,
     "PLAY AGAIN",
   );
+
+  // Submit score to leaderboard and open after a delay
+  const { entries, newIndex } = submitScore(score);
+
+  setTimeout(() => {
+    renderLeaderboard(entries, newIndex);
+    leaderboardModal.hidden = false;
+  }, 800);
 }
 
 // 30. Restart Game
@@ -973,11 +1114,12 @@ function restartGame() {
   clearInterval(gameLoop);
   gameLoop = null;
   stopAnimationLoop();
+  closeLeaderboard();
 
   initGame();
 }
 
-// 30. Change Direction
+// 31. Change Direction
 function changeDirection(x, y) {
   if (gameState !== "playing") return;
 
@@ -989,9 +1131,15 @@ function changeDirection(x, y) {
   nextDirection = { x, y };
 }
 
-// 31. Keyboard Controls
+// 32. Keyboard Controls
 document.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
+
+  // Close leaderboard on Escape
+  if (key === "escape" && !leaderboardModal.hidden) {
+    closeLeaderboard();
+    return;
+  }
 
   const movementKeys = [
     "arrowup",
@@ -1046,12 +1194,42 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-// 32. Button Events
+// 33. Button Events
 startButton.addEventListener("click", startGame);
 pauseButton.addEventListener("click", togglePause);
 restartButton.addEventListener("click", restartGame);
 
-// 33. Difficulty & Game Mode Selection
+// Leaderboard modal controls
+if (leaderboardBtn) {
+  leaderboardBtn.addEventListener("click", () => {
+    openLeaderboard(-1);
+  });
+}
+
+if (lbCloseBtn) {
+  lbCloseBtn.addEventListener("click", closeLeaderboard);
+}
+
+if (lbPlayAgainBtn) {
+  lbPlayAgainBtn.addEventListener("click", () => {
+    closeLeaderboard();
+    // If game is over, restart; otherwise just close
+    if (gameState === "over") {
+      restartGame();
+    }
+  });
+}
+
+// Close modal when clicking the backdrop itself
+if (leaderboardModal) {
+  leaderboardModal.addEventListener("click", (e) => {
+    if (e.target === leaderboardModal) {
+      closeLeaderboard();
+    }
+  });
+}
+
+// 34. Difficulty & Game Mode Selection
 difficultySelect.addEventListener("change", () => {
   const baseSpeed = DIFFICULTIES[difficultySelect.value];
 
@@ -1068,13 +1246,12 @@ if (gameModeSelect) {
     if (gameState === "ready" || gameState === "over" || gameState === "paused") {
       initGame();
     } else if (gameState === "playing") {
-      // Prompt user or seamlessly switch mode
       generateObstacles();
       drawGame();
     }
   });
 }
 
-// 34. Initial Setup
+// 35. Initial Setup
 bestScoreElement.textContent = bestScore;
 initGame();
