@@ -2,7 +2,7 @@
 
 [English](./README.en.md) | **简体中文**
 
-一个使用原生 HTML、CSS 和 JavaScript 开发的现代化贪吃蛇游戏。项目采用深色 Arcade Dashboard 风格，支持多种游戏模式、特殊食物、粒子特效、本地排行榜和多主题切换，无需任何框架或构建工具，打开 `index.html` 即可游玩。
+一个使用原生 HTML、CSS 和 JavaScript 开发的现代化贪吃蛇游戏。项目采用深色 Arcade Dashboard 风格，支持多种游戏模式、特殊食物、粒子特效、本地排行榜和多主题切换。采用 ES 模块化架构，无需任何前端框架或构建工具。
 
 ## 📌 1. Project Overview
 
@@ -12,7 +12,7 @@
 - 理解 Canvas 绘图与游戏循环的基本原理。
 - 学习键盘事件、游戏状态管理和碰撞检测。
 - 实现分数、等级、难度、模式与排行榜系统。
-- 练习使用 Git、GitHub 和 WSL 管理项目。
+- 练习使用 Git、GitHub 和 WSL 管理项目，并实践 ES 模块化重构。
 
 ### Technology Stack
 
@@ -20,7 +20,7 @@
 | ----------------------- | ------------------------------------ |
 | HTML5                   | 构建游戏页面与 UI 结构               |
 | CSS3                    | 视觉设计、主题变量、动画和响应式样式 |
-| JavaScript (Vanilla JS) | 游戏逻辑与交互                       |
+| JavaScript (Vanilla JS) | 游戏逻辑与交互 (ES6+ Modules)        |
 | HTML Canvas             | 绘制蛇、食物、障碍物和粒子特效       |
 | LocalStorage            | 保存最高分、排行榜和主题设置         |
 | Git & GitHub            | 版本控制与项目管理                   |
@@ -29,9 +29,9 @@
 **Development Principles**
 
 - 不使用 React、Vue 等前端框架。
-- 不需要 Vite、Node.js 或后端服务器。
 - 优先使用原生 JavaScript 理解底层逻辑。
-- 先完成核心游戏，再逐步增加高级功能。
+- 采用 ES Modules 进行代码解耦，提升可维护性。
+- 先完成核心游戏，再逐步增加高级功能并修复边缘情况。
 
 ---
 
@@ -75,7 +75,7 @@
 ### Visual Effects
 
 - 吃到食物时的粒子爆炸与飘字（+10、+30 等）。
-- 撞击时的屏幕震动。
+- 撞击时的屏幕震动 (Screen Shake)。
 - 蛇头发光与朝向眼睛。
 - 支持 `prefers-reduced-motion` 的减少动画设置。
 
@@ -106,18 +106,22 @@ modern-snake/
 ├── css/
 │   └── index.css
 └── js/
-    ├── main.js
-    └── theme.js
+    ├── config.js      # 新增：集中管理游戏常量
+    ├── storage.js     # 新增：封装本地存储逻辑
+    ├── main.js        # 重构：核心逻辑与事件监听
+    └── theme.js       # 主题切换逻辑
 ```
 
 ### File Responsibilities
 
-| File            | Responsibility                                                                                           |
-| --------------- | -------------------------------------------------------------------------------------------------------- |
-| `index.html`    | 页面结构：标题、状态、主题菜单、分数卡片、Buff 条、Canvas、Overlay、操作说明、控制按钮、排行榜弹窗       |
-| `css/index.css` | 深色主题与 CSS 变量、各主题配色、卡片/按钮/弹窗样式、动画、响应式布局（含 `max-width: 600px` 适配）      |
-| `js/main.js`    | 核心逻辑：游戏状态、移动与碰撞、食物与特殊食物、模式与障碍、粒子特效、排行榜、键盘与按钮事件、最高分保存 |
-| `js/theme.js`   | 主题切换、保存/读取主题，并向 `main.js` 提供各主题的 Canvas 配色（`window.SNAKE_THEME`）                 |
+| File            | Responsibility                                                                                         |
+| --------------- | ------------------------------------------------------------------------------------------------------ |
+| `index.html`    | 页面结构：标题、状态、主题菜单、分数卡片、Buff 条、Canvas、Overlay、操作说明、控制按钮、排行榜弹窗     |
+| `css/index.css` | 深色主题与 CSS 变量、各主题配色、卡片/按钮/弹窗样式、动画、响应式布局（含 `max-width: 600px` 适配）    |
+| `js/config.js`  | **新增**：集中管理游戏常量与魔法数字（如 GRID_SIZE, DIFFICULTIES），便于统一调整。                     |
+| `js/storage.js` | **新增**：封装 `localStorage` 的读写操作，提供最高分和排行榜的持久化接口。                             |
+| `js/main.js`    | 核心逻辑：通过 ES 模块导入配置与存储。包含游戏状态、移动与碰撞、食物生成、粒子特效、键盘与按钮事件等。 |
+| `js/theme.js`   | 主题切换、保存/读取主题，并向 `main.js` 提供各主题的 Canvas 配色（通过 `window.SNAKE_THEME`）。        |
 
 ---
 
@@ -181,16 +185,17 @@ initGame → 等待输入 → startGame
 - [x] 粒子爆炸、飘字与屏幕震动
 - [x] 本地 Top 5 排行榜
 - [x] 多主题切换（Neon Green / Synthwave / GameBoy）
+- [x] **架构重构**：将 `config` 和 `storage` 抽离为独立的 ES 模块，并修复暂停计时与食物贴脸生成的边缘情况。
 
 ### Planned (see [PLAN.md](./PLAN.md))
 
-- [ ] Web Audio 音效与静音开关（`M` 键）
-- [ ] 新道具：Snail（慢动作）、Speed Surge（双倍分数）
-- [ ] 触屏滑动控制与虚拟方向键
-- [ ] 第四个主题：Amber Terminal
-- [ ] 排行榜同时记录难度
-- [ ] 成就系统
-- [ ] 将 `main.js` 拆分为多个 ES 模块
+- [ ] 进一步将渲染逻辑 (`draw*` 函数) 拆分为独立的 `renderer.js` 模块。
+- [ ] Web Audio 音效与静音开关（`M` 键）。
+- [ ] 新道具：Snail（慢动作）、Speed Surge（双倍分数）。
+- [ ] 触屏滑动控制与虚拟方向键。
+- [ ] 第四个主题：Amber Terminal。
+- [ ] 排行榜同时记录难度。
+- [ ] 成就系统。
 
 ---
 
@@ -199,8 +204,8 @@ initGame → 等待输入 → startGame
 - 游戏结束后只弹出排行榜，不显示结束 Overlay；关闭弹窗后需按 Enter 或点击 RESTART 才能重新开始。
 - Tail Trimmer 的 Buff 条目前只是倒计时显示，没有实际效果。
 - 特殊食物提示文字会在下一步被状态栏的 `PLAYING` 覆盖，几乎看不到。
-- 暂停期间特殊食物和 Buff 的计时不会暂停。
-- Obstacle 模式下障碍可能生成在蛇头正前方；游戏中途切换到该模式时，障碍可能生成在蛇身上。
+
+_(注：暂停期间计时器冻结、防止食物生成在蛇头正前方的问题已在上一次重构中修复)_
 
 ---
 
@@ -209,9 +214,9 @@ initGame → 等待输入 → startGame
 - [ ] 游戏能够正常加载，控制台没有未处理的错误。
 - [ ] 蛇能向四个方向移动，且不能直接反向移动。
 - [ ] 吃到食物后蛇增长，分数和等级正确更新。
-- [ ] 食物不会生成在蛇身或障碍物上。
+- [ ] 食物不会生成在蛇身、障碍物或蛇头正前方。
 - [ ] 撞墙、撞自己、撞障碍都会结束游戏（Portal 模式下穿墙不会结束）。
-- [ ] 暂停后蛇不再移动，继续后正常运行。
+- [ ] 暂停后蛇不再移动，且特殊食物/Buff 倒计时真正冻结，继续后正常运行。
 - [ ] 重新开始后状态完全重置。
 - [ ] 难度和模式选择确实生效。
 - [ ] 特殊食物会在 6 秒后消失，三种食物效果正确。
@@ -223,32 +228,34 @@ initGame → 等待输入 → startGame
 
 ## 📦 10. Running the Project
 
-本项目使用原生 HTML、CSS 和 JavaScript，不需要安装 Node.js 或任何构建工具。
+⚠️ **重要提示**：由于项目现已采用 ES Modules (`<script type="module">`)，受浏览器 CORS 安全策略限制，**不能直接双击打开 `index.html`**（会报 CORS 错误）。必须通过本地 HTTP 服务器运行。
 
-### Option 1 — Open in Browser
+### Option 1 — VS Code Live Server (推荐)
 
-直接使用浏览器打开 `index.html`。
+在 VS Code 中安装 "Live Server" 插件，右键点击 `index.html`，选择 "Open with Live Server"。
 
-### Option 2 — VS Code Live Server
+### Option 2 — Node.js `serve`
 
-在 VS Code 中打开项目文件夹，使用 Live Server 等本地预览工具运行。
-
-### Option 3 — WSL Ubuntu
+如果你已安装 Node.js，在项目根目录运行：
 
 ```bash
-cd ~/projects/modern-snake
-code .
+npm install -g serve
+serve .
 ```
 
-保存文件后，在浏览器中查看效果。
+然后访问 `http://localhost:3000`。
+
+### Option 3 — XAMPP
+
+将 `modern-snake` 文件夹放入 XAMPP 的 `htdocs` 目录，启动 Apache，访问 `http://localhost/modern-snake/`。
 
 ---
 
 ## 📝 11. Project Status
 
-**Current Stage:** Playable — 核心玩法、模式、排行榜和主题均已完成，正在进行打磨与功能扩展。
+**Current Stage:** Playable & Refactored — 核心玩法、模式、排行榜和主题均已完成，并完成了初步的 ES 模块化重构与边缘情况修复。
 
-**Next Priority:** 修复已知问题，然后实现音效与触屏控制。
+**Next Priority:** 拆分渲染模块 (`renderer.js`)，然后实现音效与触屏控制。
 
 ---
 

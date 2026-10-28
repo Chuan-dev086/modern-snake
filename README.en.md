@@ -2,7 +2,7 @@
 
 **English** | [简体中文](./README.md)
 
-A modern Snake game built with vanilla HTML, CSS, and JavaScript. It features a dark arcade-dashboard look, multiple game modes, special food, particle effects, a local leaderboard, and theme switching. No frameworks or build tools are needed — just open `index.html` and play.
+A modern Snake game built with vanilla HTML, CSS, and JavaScript. It features a dark arcade-dashboard look, multiple game modes, special food, particle effects, a local leaderboard, and theme switching. Built with an ES Module architecture, requiring no frontend frameworks or build tools.
 
 ## 📌 1. Project Overview
 
@@ -12,7 +12,7 @@ A modern Snake game built with vanilla HTML, CSS, and JavaScript. It features a 
 - Understand Canvas drawing and the basics of a game loop.
 - Learn keyboard event handling, game state management, and collision detection.
 - Implement score, level, difficulty, game modes, and a leaderboard.
-- Practice managing a project with Git, GitHub, and WSL.
+- Practice managing a project with Git, GitHub, and WSL, and apply ES Module refactoring.
 
 ### Technology Stack
 
@@ -20,7 +20,7 @@ A modern Snake game built with vanilla HTML, CSS, and JavaScript. It features a 
 | ----------------------- | -------------------------------------------------------- |
 | HTML5                   | Page structure and UI layout                             |
 | CSS3                    | Visual design, theme variables, animation, responsive UI |
-| JavaScript (Vanilla JS) | Game logic and interaction                               |
+| JavaScript (Vanilla JS) | Game logic and interaction (ES6+ Modules)                |
 | HTML Canvas             | Drawing the snake, food, obstacles, and particle effects |
 | LocalStorage            | Saving the best score, leaderboard, and theme            |
 | Git & GitHub            | Version control and project management                   |
@@ -29,9 +29,9 @@ A modern Snake game built with vanilla HTML, CSS, and JavaScript. It features a 
 **Development Principles**
 
 - No frontend frameworks such as React or Vue.
-- No Vite, Node.js, or backend server required.
 - Prefer vanilla JavaScript to understand the underlying logic.
-- Finish the core game first, then add advanced features step by step.
+- Use ES Modules to decouple code and improve maintainability.
+- Finish the core game first, then add advanced features and fix edge cases step by step.
 
 ---
 
@@ -106,18 +106,22 @@ modern-snake/
 ├── css/
 │   └── index.css
 └── js/
-    ├── main.js
-    └── theme.js
-```
+    ├── config.js      # NEW: Centralized game constants
+    ├── storage.js     # NEW: Encapsulated local storage logic
+    ├── main.js        # REFACTORED: Core logic and event listeners
+    └── theme.js       # Theme switching logic
+````
 
 ### File Responsibilities
 
-| File            | Responsibility                                                                                                                                                     |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `index.html`    | Page structure: title, status, theme menu, score cards, buff bar, Canvas, overlay, instructions, control buttons, leaderboard modal                                |
-| `css/index.css` | Dark theme and CSS variables, per-theme colors, card/button/modal styles, animation, responsive layout (including a `max-width: 600px` breakpoint)                 |
-| `js/main.js`    | Core logic: game state, movement and collisions, food and special food, modes and obstacles, particle effects, leaderboard, keyboard and button events, best score |
-| `js/theme.js`   | Theme switching, saving/loading the theme, and providing each theme's Canvas colors to `main.js` (`window.SNAKE_THEME`)                                            |
+| File            | Responsibility                                                                                                                                           |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `index.html`    | Page structure: title, status, theme menu, score cards, buff bar, Canvas, overlay, instructions, control buttons, leaderboard modal                      |
+| `css/index.css` | Dark theme and CSS variables, per-theme colors, card/button/modal styles, animation, responsive layout (including a `max-width: 600px` breakpoint)       |
+| `js/config.js`  | **NEW**: Centralizes game constants and magic numbers (e.g., GRID_SIZE, DIFFICULTIES) for easy adjustment.                                               |
+| `js/storage.js` | **NEW**: Encapsulates `localStorage` read/write operations, providing persistent interfaces for best score and leaderboard.                              |
+| `js/main.js`    | Core logic: Imports config and storage via ES modules. Handles game state, movement, collisions, food generation, particle effects, and event listeners. |
+| `js/theme.js`   | Theme switching, saving/loading the theme, and providing each theme's Canvas colors to `main.js` (`window.SNAKE_THEME`).                                 |
 
 ---
 
@@ -181,16 +185,17 @@ initGame → wait for input → startGame
 - [x] Particle bursts, floating text, and screen shake
 - [x] Local Top 5 leaderboard
 - [x] Theme switcher (Neon Green / Synthwave / GameBoy)
+- [x] **Architecture Refactor**: Extracted `config` and `storage` into separate ES modules, and fixed edge cases (pause timer freeze, smart food spawning).
 
 ### Planned (see [PLAN.md](./PLAN.md))
 
-- [ ] Web Audio sound effects and a mute toggle (`M` key)
-- [ ] New power-ups: Snail (slow motion) and Speed Surge (double points)
-- [ ] Touch swipe controls and a virtual D-pad
-- [ ] A fourth theme: Amber Terminal
-- [ ] Record difficulty in the leaderboard
-- [ ] Achievement system
-- [ ] Split `main.js` into multiple ES modules
+- [ ] Further decouple rendering logic (`draw*` functions) into a dedicated `renderer.js` module.
+- [ ] Web Audio sound effects and a mute toggle (`M` key).
+- [ ] New power-ups: Snail (slow motion) and Speed Surge (double points).
+- [ ] Touch swipe controls and a virtual D-pad.
+- [ ] A fourth theme: Amber Terminal.
+- [ ] Record difficulty in the leaderboard.
+- [ ] Achievement system.
 
 ---
 
@@ -199,8 +204,8 @@ initGame → wait for input → startGame
 - When the game ends, only the leaderboard appears and no game-over overlay is shown; after closing the modal, press Enter or click RESTART to play again.
 - The Tail Trimmer buff bar is currently just a countdown display and has no actual effect.
 - The special-food status message is overwritten by `PLAYING` on the next step, so it is barely visible.
-- Special food and buff timers keep running while the game is paused.
-- In Obstacle mode, obstacles can spawn directly in front of the snake's head; if you switch to this mode mid-game, they may spawn on the snake's body.
+
+_(Note: Issues regarding special food/buff timers running while paused, and obstacles spawning in front of the snake's head have been fixed in the latest refactor.)_
 
 ---
 
@@ -209,9 +214,9 @@ initGame → wait for input → startGame
 - [ ] The game loads normally with no unhandled console errors.
 - [ ] The snake moves in all four directions and cannot reverse directly.
 - [ ] Eating food grows the snake and updates score and level correctly.
-- [ ] Food never spawns on the snake or on obstacles.
+- [ ] Food never spawns on the snake, obstacles, or directly in front of the snake's next step.
 - [ ] Hitting a wall, itself, or an obstacle ends the game (crossing the edge in Portal mode does not).
-- [ ] The snake stops moving when paused and runs normally after resuming.
+- [ ] The snake stops moving when paused, and special food/buff timers truly freeze, resuming normally afterward.
 - [ ] Restarting fully resets the game state.
 - [ ] Difficulty and mode selections take effect.
 - [ ] Special food disappears after 6 seconds, and all three types behave correctly.
@@ -223,32 +228,34 @@ initGame → wait for input → startGame
 
 ## 📦 10. Running the Project
 
-This project uses vanilla HTML, CSS, and JavaScript. It does not require Node.js or any build tools.
+⚠️ **Important**: Due to browser CORS security policies regarding ES Modules (`<script type="module">`), **you cannot run this game by simply double-clicking `index.html`** (it will throw a CORS error). You must serve it via a local HTTP server.
 
-### Option 1 — Open in Browser
+### Option 1 — VS Code Live Server (Recommended)
 
-Open `index.html` directly in your browser.
+Install the "Live Server" extension in VS Code, right-click `index.html`, and select "Open with Live Server".
 
-### Option 2 — VS Code Live Server
+### Option 2 — Node.js `serve`
 
-Open the project folder in VS Code and run it with a local preview tool such as Live Server.
-
-### Option 3 — WSL Ubuntu
+If you have Node.js installed, run the following in the project root:
 
 ```bash
-cd ~/projects/modern-snake
-code .
+npm install -g serve
+serve .
 ```
 
-Save your files and view the result in the browser.
+Then visit `http://localhost:3000`.
+
+### Option 3 — XAMPP
+
+Place the `modern-snake` folder inside your XAMPP `htdocs` directory, start Apache, and visit `http://localhost/modern-snake/`.
 
 ---
 
 ## 📝 11. Project Status
 
-**Current Stage:** Playable — the core gameplay, modes, leaderboard, and themes are complete; the project is now in polish and feature-expansion.
+**Current Stage:** Playable & Refactored — Core gameplay, modes, leaderboard, and themes are complete. Initial ES Module refactoring and edge-case fixes have been successfully applied.
 
-**Next Priority:** Fix the known issues, then implement sound effects and touch controls.
+**Next Priority:** Decouple the rendering logic into `renderer.js`, then implement sound effects and touch controls.
 
 ---
 
