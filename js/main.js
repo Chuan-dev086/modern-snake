@@ -1,8 +1,27 @@
 /* ========================================
-   Modern Snake Game
-   Special Food & Bonus Rewards | Phase 2 Modes | Phase 4 Leaderboard
-   Refactored for Edge-Case Safety & Modularity
+   Modern Snake Game - Main Entry Point
+   Refactored for ES Modules
 ======================================== */
+
+// --- MODULE: Imports ---
+import {
+  GRID_SIZE,
+  FOOD_SCORE,
+  LEVEL_SCORE,
+  SPECIAL_FOOD_INTERVAL,
+  SPECIAL_FOOD_CHANCE,
+  SPECIAL_FOOD_DURATION,
+  SPECIAL_FOOD_TYPES,
+  DIFFICULTIES,
+  LEADERBOARD_MAX,
+} from "./config.js";
+
+import {
+  loadBestScore,
+  saveBestScore,
+  loadLeaderboard,
+  saveLeaderboard,
+} from "./storage.js";
 
 // --- MODULE: DOM Elements ---
 const canvas = document.getElementById("game-canvas");
@@ -37,25 +56,6 @@ const leaderboardList = document.getElementById("leaderboard-list");
 const lbCloseBtn = document.getElementById("lb-close-btn");
 const lbPlayAgainBtn = document.getElementById("lb-play-again-btn");
 
-// --- MODULE: Game Configuration ---
-const GRID_SIZE = 20;
-const TILE_COUNT = canvas.width / GRID_SIZE;
-
-const FOOD_SCORE = 10;
-const LEVEL_SCORE = 50;
-
-const SPECIAL_FOOD_INTERVAL = 3;
-const SPECIAL_FOOD_CHANCE = 0.7;
-const SPECIAL_FOOD_DURATION = 6000;
-
-const SPECIAL_FOOD_TYPES = [
-  { type: "golden", emoji: "⭐", points: 30 },
-  { type: "crystal", emoji: "💎", points: 20 },
-  { type: "trimmer", emoji: "✂️", points: 15 },
-];
-
-const DIFFICULTIES = { easy: 180, normal: 120, hard: 75 };
-
 // --- MODULE: Game State ---
 let snake = [];
 let food = null;
@@ -67,67 +67,22 @@ let nextDirection = { x: 1, y: 0 };
 
 let score = 0;
 let level = 1;
-let bestScore = loadBestScore();
+let bestScore = loadBestScore(); // 调用导入的函数
 let normalFoodEaten = 0;
 let gameState = "ready";
 let gameLoop = null;
 let currentSpeed = DIFFICULTIES.normal;
 let gameMode = "classic";
 
-// Active Buff / Power-up state
 let activeBuff = null;
-
-// Particle and Floating Text Systems
 let particles = [];
 let floatingTexts = [];
 let animationFrameId = null;
 
-// Pause Time Tracking (For freezing buffs/special food)
 let pauseStartTime = 0;
 let totalPausedTime = 0;
 
-// --- MODULE: Persistence & Leaderboard ---
-function loadBestScore() {
-  try {
-    const savedScore = Number(localStorage.getItem("modern_snake_best_score"));
-    return Number.isFinite(savedScore) && savedScore >= 0 ? savedScore : 0;
-  } catch (error) {
-    console.warn("Unable to load best score:", error);
-    return 0;
-  }
-}
-
-function saveBestScore() {
-  try {
-    localStorage.setItem("modern_snake_best_score", String(bestScore));
-  } catch (error) {
-    console.warn("Unable to save best score:", error);
-  }
-}
-
-const LEADERBOARD_KEY = "modern_snake_leaderboard";
-const LEADERBOARD_MAX = 5;
-
-function loadLeaderboard() {
-  try {
-    const raw = localStorage.getItem(LEADERBOARD_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (e) => typeof e.score === "number" && Number.isFinite(e.score),
-    );
-  } catch (_) {
-    return [];
-  }
-}
-
-function saveLeaderboard(entries) {
-  try {
-    localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries));
-  } catch (_) {}
-}
-
+// --- MODULE: Leaderboard Logic ---
 function submitScore(newScore) {
   if (newScore <= 0) return { entries: loadLeaderboard(), newIndex: -1 };
 
@@ -144,7 +99,7 @@ function submitScore(newScore) {
   entries.push(entry);
   entries.sort((a, b) => b.score - a.score);
 
-  const trimmed = entries.slice(0, LEADERBOARD_MAX);
+  const trimmed = entries.slice(0, LEADERBOARD_MAX); // 使用导入的常量
   const newIndex = trimmed.findIndex((e) => e === entry);
 
   saveLeaderboard(trimmed);
@@ -156,6 +111,7 @@ function renderLeaderboard(entries, newIndex) {
   const RANK_ICONS = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"];
 
   for (let i = 0; i < LEADERBOARD_MAX; i++) {
+    // 使用导入的常量
     const li = document.createElement("li");
     li.className = "lb-entry";
 
@@ -201,7 +157,7 @@ function closeLeaderboard() {
 // --- MODULE: Core Game Logic ---
 function triggerScreenShake() {
   canvas.classList.remove("shake");
-  void canvas.offsetWidth; // Force reflow
+  void canvas.offsetWidth;
   canvas.classList.add("shake");
   canvas.addEventListener(
     "animationend",
@@ -214,6 +170,7 @@ function generateObstacles() {
   obstacles = [];
   if (gameMode !== "obstacles") return;
 
+  const TILE_COUNT = canvas.width / GRID_SIZE; // 使用导入的常量
   const blockCount = 5;
   for (let b = 0; b < blockCount; b++) {
     const isHorizontal = Math.random() < 0.5;
@@ -225,7 +182,7 @@ function generateObstacles() {
       const ox = isHorizontal ? startX + i : startX;
       const oy = isHorizontal ? startY : startY + i;
 
-      if (ox >= 3 && ox <= 9 && oy >= 13 && oy <= 17) continue; // Safe zone
+      if (ox >= 3 && ox <= 9 && oy >= 13 && oy <= 17) continue;
 
       if (!obstacles.some((o) => o.x === ox && o.y === oy)) {
         obstacles.push({ x: ox, y: oy });
@@ -279,7 +236,6 @@ function initGame() {
   gameMode = gameModeSelect ? gameModeSelect.value : "classic";
   clearBuff();
 
-  // Reset pause timers
   pauseStartTime = 0;
   totalPausedTime = 0;
 
@@ -347,7 +303,6 @@ function hideOverlay() {
   overlay.hidden = true;
 }
 
-// 【边缘情况修复】：增加 predictNextStep 参数，防止食物生成在蛇头下一步的必经之路上
 function isCellOccupied(x, y, predictNextStep = false) {
   const occupiedBySnake = snake.some(
     (segment) => segment.x === x && segment.y === y,
@@ -374,10 +329,10 @@ function isCellOccupied(x, y, predictNextStep = false) {
 }
 
 function getRandomEmptyCell() {
+  const TILE_COUNT = canvas.width / GRID_SIZE;
   const emptyCells = [];
   for (let y = 0; y < TILE_COUNT; y++) {
     for (let x = 0; x < TILE_COUNT; x++) {
-      // 传入 true 启用下一步预测检查
       if (!isCellOccupied(x, y, true)) {
         emptyCells.push({ x, y });
       }
@@ -427,6 +382,7 @@ function getThemePalette() {
 
 // --- MODULE: Renderer ---
 function drawBackground() {
+  const TILE_COUNT = canvas.width / GRID_SIZE;
   const palette = getThemePalette();
   ctx.fillStyle = palette.bg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -725,6 +681,7 @@ function updateGame() {
 
   direction = { ...nextDirection };
   let head = { x: snake[0].x + direction.x, y: snake[0].y + direction.y };
+  const TILE_COUNT = canvas.width / GRID_SIZE;
 
   if (gameMode === "portal") {
     if (head.x < 0) head.x = TILE_COUNT - 1;
@@ -776,7 +733,7 @@ function addScore(points) {
 
   if (score > bestScore) {
     bestScore = score;
-    saveBestScore();
+    saveBestScore(bestScore); // 传入参数
   }
   updateDashboard();
 
@@ -850,7 +807,7 @@ function eatSpecialFood() {
 function togglePause() {
   if (gameState === "playing") {
     gameState = "paused";
-    pauseStartTime = Date.now(); // 记录暂停开始时间
+    pauseStartTime = Date.now();
     clearInterval(gameLoop);
     gameLoop = null;
     stopAnimationLoop();
@@ -869,7 +826,6 @@ function togglePause() {
     const pauseDuration = Date.now() - pauseStartTime;
     totalPausedTime += pauseDuration;
 
-    // 【边缘情况修复】：将特殊食物和 Buff 的过期时间向后顺延，实现真正的“时间冻结”
     if (specialFood) specialFood.expiresAt += pauseDuration;
     if (activeBuff) activeBuff.expiresAt += pauseDuration;
 
