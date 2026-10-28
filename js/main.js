@@ -1,6 +1,6 @@
 /* ========================================
    Modern Snake Game - Main Entry Point
-   Refactored for ES Modules
+   Refactored for ES Modules & Separation of Concerns
 ======================================== */
 
 // --- MODULE: Imports ---
@@ -22,6 +22,8 @@ import {
   loadLeaderboard,
   saveLeaderboard,
 } from "./storage.js";
+
+import { renderScene } from "./renderer.js";
 
 // --- MODULE: DOM Elements ---
 const canvas = document.getElementById("game-canvas");
@@ -67,7 +69,7 @@ let nextDirection = { x: 1, y: 0 };
 
 let score = 0;
 let level = 1;
-let bestScore = loadBestScore(); // 调用导入的函数
+let bestScore = loadBestScore();
 let normalFoodEaten = 0;
 let gameState = "ready";
 let gameLoop = null;
@@ -82,10 +84,24 @@ let animationFrameId = null;
 let pauseStartTime = 0;
 let totalPausedTime = 0;
 
+// --- MODULE: Helper Functions ---
+function getThemePalette() {
+  const activeTheme =
+    document.documentElement.getAttribute("data-theme") || "neon-green";
+  return (
+    (window.SNAKE_THEME && window.SNAKE_THEME[activeTheme]) ||
+    (window.SNAKE_THEME && window.SNAKE_THEME["neon-green"]) || {
+      bg: "#0b1217",
+      gridLine: "rgba(57, 255, 136, 0.055)",
+      snake: { head: "#70ffab", body: "#39d978", shadow: "#39ff88" },
+      food: "#ff5263",
+    }
+  );
+}
+
 // --- MODULE: Leaderboard Logic ---
 function submitScore(newScore) {
   if (newScore <= 0) return { entries: loadLeaderboard(), newIndex: -1 };
-
   const entries = loadLeaderboard();
   const entry = {
     score: newScore,
@@ -95,13 +111,10 @@ function submitScore(newScore) {
     }),
     mode: gameMode,
   };
-
   entries.push(entry);
   entries.sort((a, b) => b.score - a.score);
-
-  const trimmed = entries.slice(0, LEADERBOARD_MAX); // 使用导入的常量
+  const trimmed = entries.slice(0, LEADERBOARD_MAX);
   const newIndex = trimmed.findIndex((e) => e === entry);
-
   saveLeaderboard(trimmed);
   return { entries: trimmed, newIndex };
 }
@@ -109,33 +122,20 @@ function submitScore(newScore) {
 function renderLeaderboard(entries, newIndex) {
   leaderboardList.innerHTML = "";
   const RANK_ICONS = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"];
-
   for (let i = 0; i < LEADERBOARD_MAX; i++) {
-    // 使用导入的常量
     const li = document.createElement("li");
     li.className = "lb-entry";
-
     if (i < entries.length) {
       const e = entries[i];
       const isNew = i === newIndex;
       if (isNew) li.classList.add("lb-new");
-
       const modeLabel =
         e.mode === "portal"
           ? "Portal"
           : e.mode === "obstacles"
             ? "Maze"
             : "Classic";
-
-      li.innerHTML = `
-        <span class="lb-rank">${RANK_ICONS[i] ?? i + 1}</span>
-        <span class="lb-score">${e.score}</span>
-        <span class="lb-meta">
-          <span>${e.date ?? ""}</span>
-          <span>${modeLabel}</span>
-        </span>
-        ${isNew ? '<span class="lb-new-badge">NEW</span>' : ""}
-      `;
+      li.innerHTML = `<span class="lb-rank">${RANK_ICONS[i] ?? i + 1}</span><span class="lb-score">${e.score}</span><span class="lb-meta"><span>${e.date ?? ""}</span><span>${modeLabel}</span></span>${isNew ? '<span class="lb-new-badge">NEW</span>' : ""}`;
     } else {
       li.classList.add("lb-empty");
       li.innerHTML = `<span class="lb-rank">${RANK_ICONS[i] ?? i + 1}</span><span>—</span>`;
@@ -145,8 +145,7 @@ function renderLeaderboard(entries, newIndex) {
 }
 
 function openLeaderboard(newIndex = -1) {
-  const entries = loadLeaderboard();
-  renderLeaderboard(entries, newIndex);
+  renderLeaderboard(loadLeaderboard(), newIndex);
   leaderboardModal.hidden = false;
 }
 
@@ -169,24 +168,19 @@ function triggerScreenShake() {
 function generateObstacles() {
   obstacles = [];
   if (gameMode !== "obstacles") return;
-
-  const TILE_COUNT = canvas.width / GRID_SIZE; // 使用导入的常量
+  const TILE_COUNT = canvas.width / GRID_SIZE;
   const blockCount = 5;
   for (let b = 0; b < blockCount; b++) {
     const isHorizontal = Math.random() < 0.5;
     const length = 3;
     const startX = Math.floor(Math.random() * (TILE_COUNT - length));
     const startY = Math.floor(Math.random() * (TILE_COUNT - length));
-
     for (let i = 0; i < length; i++) {
       const ox = isHorizontal ? startX + i : startX;
       const oy = isHorizontal ? startY : startY + i;
-
       if (ox >= 3 && ox <= 9 && oy >= 13 && oy <= 17) continue;
-
-      if (!obstacles.some((o) => o.x === ox && o.y === oy)) {
+      if (!obstacles.some((o) => o.x === ox && o.y === oy))
         obstacles.push({ x: ox, y: oy });
-      }
     }
   }
 }
@@ -218,7 +212,6 @@ function updateBuffUI() {
       buffBarContainer.hidden = true;
     return;
   }
-
   const remainingMs = Math.max(0, activeBuff.expiresAt - Date.now());
   activeBuff.remaining = remainingMs;
   buffTimer.textContent = `${(remainingMs / 1000).toFixed(1)}s`;
@@ -227,7 +220,6 @@ function updateBuffUI() {
     Math.min(100, (remainingMs / activeBuff.duration) * 100),
   );
   buffProgressFill.style.width = `${percent}%`;
-
   if (remainingMs <= 0) clearBuff();
 }
 
@@ -235,7 +227,6 @@ function initGame() {
   canvas.classList.remove("shake");
   gameMode = gameModeSelect ? gameModeSelect.value : "classic";
   clearBuff();
-
   pauseStartTime = 0;
   totalPausedTime = 0;
 
@@ -271,7 +262,6 @@ function initGame() {
     portal: "Portal mode: Walk through edges to wrap around the screen!",
     obstacles: "Obstacle Maze: Navigate carefully around hazardous barriers!",
   };
-
   showOverlay(
     "🐍",
     "Ready to Play?",
@@ -319,7 +309,6 @@ function isCellOccupied(x, y, predictNextStep = false) {
     const nextHeadY = snake[0].y + direction.y;
     if (x === nextHeadX && y === nextHeadY) return true;
   }
-
   return (
     occupiedBySnake ||
     occupiedByFood ||
@@ -333,9 +322,7 @@ function getRandomEmptyCell() {
   const emptyCells = [];
   for (let y = 0; y < TILE_COUNT; y++) {
     for (let x = 0; x < TILE_COUNT; x++) {
-      if (!isCellOccupied(x, y, true)) {
-        emptyCells.push({ x, y });
-      }
+      if (!isCellOccupied(x, y, true)) emptyCells.push({ x, y });
     }
   }
   if (emptyCells.length === 0) return null;
@@ -355,7 +342,6 @@ function spawnSpecialFood() {
   if (specialFood || gameState === "over") return;
   const emptyCell = getRandomEmptyCell();
   if (!emptyCell) return;
-
   const selectedType =
     SPECIAL_FOOD_TYPES[Math.floor(Math.random() * SPECIAL_FOOD_TYPES.length)];
   specialFood = {
@@ -366,269 +352,30 @@ function spawnSpecialFood() {
   };
 }
 
-function getThemePalette() {
-  const activeTheme =
-    document.documentElement.getAttribute("data-theme") || "neon-green";
-  return (
-    (window.SNAKE_THEME && window.SNAKE_THEME[activeTheme]) ||
-    (window.SNAKE_THEME && window.SNAKE_THEME["neon-green"]) || {
-      bg: "#0b1217",
-      gridLine: "rgba(57, 255, 136, 0.055)",
-      snake: { head: "#70ffab", body: "#39d978", shadow: "#39ff88" },
-      food: "#ff5263",
-    }
+// 🌟 The new, ultra-clean draw function
+function drawGame() {
+  renderScene(
+    ctx,
+    canvas,
+    {
+      gameMode,
+      obstacles,
+      food,
+      specialFood,
+      snake,
+      direction,
+      particles,
+      floatingTexts,
+    },
+    getThemePalette,
   );
-}
-
-// --- MODULE: Renderer ---
-function drawBackground() {
-  const TILE_COUNT = canvas.width / GRID_SIZE;
-  const palette = getThemePalette();
-  ctx.fillStyle = palette.bg;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  if (gameMode === "portal") {
-    ctx.strokeStyle = "rgba(98, 200, 255, 0.4)";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
-  }
-
-  ctx.strokeStyle = palette.gridLine;
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= TILE_COUNT; i++) {
-    const position = i * GRID_SIZE;
-    ctx.beginPath();
-    ctx.moveTo(position, 0);
-    ctx.lineTo(position, canvas.height);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, position);
-    ctx.lineTo(canvas.width, position);
-    ctx.stroke();
-  }
-}
-
-function drawObstacles() {
-  if (gameMode !== "obstacles" || obstacles.length === 0) return;
-  obstacles.forEach((obs) => {
-    const padding = 1.5;
-    const x = obs.x * GRID_SIZE + padding;
-    const y = obs.y * GRID_SIZE + padding;
-    const size = GRID_SIZE - padding * 2;
-    ctx.save();
-    ctx.fillStyle = "#ff4757";
-    ctx.shadowColor = "#ff4757";
-    ctx.shadowBlur = 10;
-    ctx.beginPath();
-    ctx.roundRect(x, y, size, size, 4);
-    ctx.fill();
-    ctx.fillStyle = "#2f3542";
-    ctx.beginPath();
-    ctx.roundRect(x + 3, y + 3, size - 6, size - 6, 2);
-    ctx.fill();
-    ctx.restore();
-  });
-}
-
-function drawFood() {
-  if (!food) return;
-  const palette = getThemePalette();
-  const centerX = food.x * GRID_SIZE + GRID_SIZE / 2;
-  const centerY = food.y * GRID_SIZE + GRID_SIZE / 2;
-  ctx.save();
-  ctx.shadowColor = palette.food;
-  ctx.shadowBlur = 15;
-  ctx.fillStyle = palette.food;
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, GRID_SIZE * 0.34, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawSpecialFood() {
-  if (!specialFood) return;
-  const centerX = specialFood.x * GRID_SIZE + GRID_SIZE / 2;
-  const centerY = specialFood.y * GRID_SIZE + GRID_SIZE / 2;
-  const remainingSeconds = Math.max(
-    0,
-    Math.ceil((specialFood.expiresAt - Date.now()) / 1000),
-  );
-  const glowColor =
-    specialFood.type === "golden"
-      ? "#ffd166"
-      : specialFood.type === "crystal"
-        ? "#62c8ff"
-        : "#ff7e5f";
-
-  ctx.save();
-  ctx.shadowColor = glowColor;
-  ctx.shadowBlur = 18;
-  ctx.fillStyle = glowColor;
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, GRID_SIZE * 0.42, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.shadowBlur = 0;
-  ctx.font = "15px sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(specialFood.emoji, centerX, centerY);
-
-  ctx.font = "bold 10px sans-serif";
-  ctx.fillStyle = "#ffffff";
-  ctx.fillText(`${remainingSeconds}s`, centerX, centerY + 17);
-  ctx.restore();
-}
-
-function drawSnake() {
-  const palette = getThemePalette();
-  snake.forEach((segment, index) => {
-    const padding = 2;
-    const x = segment.x * GRID_SIZE + padding;
-    const y = segment.y * GRID_SIZE + padding;
-    const size = GRID_SIZE - padding * 2;
-    ctx.save();
-    ctx.fillStyle = index === 0 ? palette.snake.head : palette.snake.body;
-    if (index === 0) {
-      ctx.shadowColor = palette.snake.shadow;
-      ctx.shadowBlur = 12;
-    }
-    ctx.beginPath();
-    ctx.roundRect(x, y, size, size, index === 0 ? 6 : 4);
-    ctx.fill();
-
-    if (index === 0) {
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = "#07110b";
-      const eyeOffset = 5;
-      const eyeRadius = 2;
-      let eyes;
-      if (direction.x === 1)
-        eyes = [
-          [x + size - eyeOffset, y + 5],
-          [x + size - eyeOffset, y + size - 5],
-        ];
-      else if (direction.x === -1)
-        eyes = [
-          [x + eyeOffset, y + 5],
-          [x + eyeOffset, y + size - 5],
-        ];
-      else if (direction.y === -1)
-        eyes = [
-          [x + 5, y + eyeOffset],
-          [x + size - 5, y + eyeOffset],
-        ];
-      else
-        eyes = [
-          [x + 5, y + size - eyeOffset],
-          [x + size - 5, y + size - eyeOffset],
-        ];
-
-      eyes.forEach(([eyeX, eyeY]) => {
-        ctx.beginPath();
-        ctx.arc(eyeX, eyeY, eyeRadius, 0, Math.PI * 2);
-        ctx.fill();
-      });
-    }
-    ctx.restore();
-  });
-}
-
-function createFoodExplosion(x, y, color = "#ff5263", count = 14) {
-  const centerX = x * GRID_SIZE + GRID_SIZE / 2;
-  const centerY = y * GRID_SIZE + GRID_SIZE / 2;
-  for (let i = 0; i < count; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const speed = 1.2 + Math.random() * 3.8;
-    const size = 2 + Math.random() * 3.5;
-    const maxLife = 20 + Math.random() * 18;
-    particles.push({
-      x: centerX,
-      y: centerY,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      size,
-      color,
-      alpha: 1,
-      life: maxLife,
-      maxLife,
-    });
-  }
-}
-
-function createFloatingScore(x, y, text, color = "#39ff88") {
-  floatingTexts.push({
-    x: x * GRID_SIZE + GRID_SIZE / 2,
-    y: y * GRID_SIZE + GRID_SIZE / 2,
-    text,
-    color,
-    alpha: 1,
-    vy: -1.2,
-    life: 35,
-    maxLife: 35,
-  });
-}
-
-function updateAndDrawEffects() {
-  for (let i = particles.length - 1; i >= 0; i--) {
-    const p = particles[i];
-    p.x += p.vx;
-    p.y += p.vy;
-    p.vx *= 0.94;
-    p.vy *= 0.94;
-    p.life--;
-    p.alpha = Math.max(0, p.life / p.maxLife);
-    if (p.life <= 0 || p.alpha <= 0) {
-      particles.splice(i, 1);
-      continue;
-    }
-    ctx.save();
-    ctx.globalAlpha = p.alpha;
-    ctx.fillStyle = p.color;
-    ctx.shadowColor = p.color;
-    ctx.shadowBlur = 8;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size * (p.life / p.maxLife), 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  for (let i = floatingTexts.length - 1; i >= 0; i--) {
-    const ft = floatingTexts[i];
-    ft.y += ft.vy;
-    ft.life--;
-    ft.alpha = Math.max(0, ft.life / ft.maxLife);
-    if (ft.life <= 0 || ft.alpha <= 0) {
-      floatingTexts.splice(i, 1);
-      continue;
-    }
-    ctx.save();
-    ctx.globalAlpha = ft.alpha;
-    ctx.font = "bold 13px 'Segoe UI', sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = ft.color;
-    ctx.shadowColor = ft.color;
-    ctx.shadowBlur = 6;
-    ctx.fillText(ft.text, ft.x, ft.y);
-    ctx.restore();
-  }
-}
-
-function renderStaticScene() {
-  drawBackground();
-  drawObstacles();
-  drawFood();
-  drawSpecialFood();
-  drawSnake();
 }
 
 function startAnimationLoop() {
   if (animationFrameId !== null) return;
   function renderLoop() {
     updateBuffUI();
-    renderStaticScene();
-    updateAndDrawEffects();
+    drawGame();
     animationFrameId = requestAnimationFrame(renderLoop);
   }
   animationFrameId = requestAnimationFrame(renderLoop);
@@ -641,16 +388,10 @@ function stopAnimationLoop() {
   }
 }
 
-function drawGame() {
-  renderStaticScene();
-  updateAndDrawEffects();
-}
-
 // --- MODULE: Game Loop & Controls ---
 function startGame() {
   if (gameState === "playing") return;
   if (gameState === "ready" || gameState === "over") initGame();
-
   hideOverlay();
   gameState = "playing";
   updateStatus("PLAYING");
@@ -671,13 +412,11 @@ function runGameLoop() {
 
 function updateGame() {
   if (specialFood && Date.now() >= specialFood.expiresAt) specialFood = null;
-
   if (
     statusElement.textContent.includes("BONUS") ||
     statusElement.textContent.includes("TRIMMED")
-  ) {
+  )
     updateStatus("PLAYING");
-  }
 
   direction = { ...nextDirection };
   let head = { x: snake[0].x + direction.x, y: snake[0].y + direction.y };
@@ -730,10 +469,9 @@ function addScore(points) {
   score += points;
   const newLevel = Math.floor(score / LEVEL_SCORE) + 1;
   if (newLevel > level) level = newLevel;
-
   if (score > bestScore) {
     bestScore = score;
-    saveBestScore(bestScore); // 传入参数
+    saveBestScore(bestScore);
   }
   updateDashboard();
 
@@ -745,6 +483,42 @@ function addScore(points) {
   }
 }
 
+// State-modifying effect functions (kept in main.js)
+function createFoodExplosion(x, y, color = "#ff5263", count = 14) {
+  const centerX = x * GRID_SIZE + GRID_SIZE / 2;
+  const centerY = y * GRID_SIZE + GRID_SIZE / 2;
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1.2 + Math.random() * 3.8;
+    const size = 2 + Math.random() * 3.5;
+    const maxLife = 20 + Math.random() * 18;
+    particles.push({
+      x: centerX,
+      y: centerY,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      size,
+      color,
+      alpha: 1,
+      life: maxLife,
+      maxLife,
+    });
+  }
+}
+
+function createFloatingScore(x, y, text, color = "#39ff88") {
+  floatingTexts.push({
+    x: x * GRID_SIZE + GRID_SIZE / 2,
+    y: y * GRID_SIZE + GRID_SIZE / 2,
+    text,
+    color,
+    alpha: 1,
+    vy: -1.2,
+    life: 35,
+    maxLife: 35,
+  });
+}
+
 function eatFood() {
   if (food) {
     createFoodExplosion(food.x, food.y, "#ff5263", 14);
@@ -753,7 +527,6 @@ function eatFood() {
   addScore(FOOD_SCORE);
   normalFoodEaten++;
   spawnFood();
-
   if (
     normalFoodEaten % SPECIAL_FOOD_INTERVAL === 0 &&
     !specialFood &&
@@ -783,9 +556,8 @@ function eatSpecialFood() {
     const newLength = Math.max(3, Math.floor(originalLength / 2));
     const trimmedCount = originalLength - newLength;
     if (trimmedCount > 0) {
-      for (let i = newLength; i < originalLength; i++) {
+      for (let i = newLength; i < originalLength; i++)
         createFoodExplosion(snake[i].x, snake[i].y, "#ff7e5f", 6);
-      }
       snake = snake.slice(0, newLength);
     }
     createFloatingScore(foodX, foodY, `TRIM -${trimmedCount}!`, "#ff7e5f");
@@ -799,7 +571,6 @@ function eatSpecialFood() {
         : `CRYSTAL BONUS +${points}`,
     );
   }
-
   specialFood = null;
   addScore(points);
 }
@@ -821,14 +592,11 @@ function togglePause() {
     );
     return;
   }
-
   if (gameState === "paused") {
     const pauseDuration = Date.now() - pauseStartTime;
     totalPausedTime += pauseDuration;
-
     if (specialFood) specialFood.expiresAt += pauseDuration;
     if (activeBuff) activeBuff.expiresAt += pauseDuration;
-
     startGame();
   }
 }
@@ -842,7 +610,6 @@ function endGame() {
   updateStatus("GAME OVER");
   pauseButton.disabled = true;
   pauseButton.textContent = "PAUSE";
-
   const { entries, newIndex } = submitScore(score);
   setTimeout(() => {
     renderLeaderboard(entries, newIndex);
@@ -864,7 +631,6 @@ function winGame() {
     `Amazing! You scored ${score} points and filled the board!`,
     "PLAY AGAIN",
   );
-
   const { entries, newIndex } = submitScore(score);
   setTimeout(() => {
     renderLeaderboard(entries, newIndex);
@@ -893,7 +659,6 @@ document.addEventListener("keydown", (event) => {
     closeLeaderboard();
     return;
   }
-
   const movementKeys = [
     "arrowup",
     "arrowdown",
